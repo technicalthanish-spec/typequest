@@ -112,17 +112,17 @@ async function loadCloudData() {
   return data?.state ? { state: normalizeData(data.state), revision: Number(data.revision || 0) } : null;
 }
 
-async function saveCloudData(d, userId = null) {
+async function saveCloudData(d, userId = null, revisionRef = null) {
   if (!isCloudConfigured) return;
   const id = userId || (await supabase.auth.getUser()).data?.user?.id;
   if (!id) return;
-  const expectedRevision = Number(cloudRevisionRef.current || 0);
+  const expectedRevision = Number(revisionRef?.current || 0);
   const { data, error } = await supabase.rpc("save_game_state", {
     p_state: normalizeData(d),
     p_expected_revision: expectedRevision
   });
   if (error) throw error;
-  cloudRevisionRef.current = Number(data || expectedRevision + 1);
+  if (revisionRef) revisionRef.current = Number(data || expectedRevision + 1);
 }
 
 
@@ -226,7 +226,7 @@ function TypeQuestApp() {
           const snapshot = cloudSavePendingRef.current;
           cloudSavePendingRef.current = null;
           if (snapshot.generation !== cloudGenerationRef.current) continue;
-          await saveCloudData(snapshot.state, snapshot.userId);
+          await saveCloudData(snapshot.state, snapshot.userId, cloudRevisionRef);
         }
       } catch (e) {
         setCloudError(e?.message || "Cloud sync failed.");
@@ -255,7 +255,7 @@ function TypeQuestApp() {
               // Never copy another account's cached progress into a new account.
               local = normalizeData(null);
             } else if (local.profile) {
-              await saveCloudData(local, user.id);
+              await saveCloudData(local, user.id, cloudRevisionRef);
             }
           }
         } catch (e) { if (active) setCloudError(e?.message || "Cloud sync is unavailable."); }
@@ -438,7 +438,7 @@ function TypeQuestApp() {
       const resetState = normalizeData({ profile: resetProfile, firstGuideSeen: false });
       cloudSavePendingRef.current = null;
       cloudRevisionRef.current = 0;
-      if (cloudUser && isCloudConfigured) await saveCloudData(resetState, cloudUser.id);
+      if (cloudUser && isCloudConfigured) await saveCloudData(resetState, cloudUser.id, cloudRevisionRef);
       setData(resetState);
       setView("dashboard");
     } catch (e) {
