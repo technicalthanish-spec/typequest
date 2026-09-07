@@ -502,120 +502,91 @@ function Dashboard({ data, level, onStart, onMap, onStats, onHistory, onGuide })
   const day = todayKey();
   const mins = Math.floor(data.dailyMinutes?.[day] || 0);
   const daily = Math.min(10, mins);
-  const yesterday = offsetDayKey(-1);
-  const yAttempts = data.attempts.filter(a => a.date.slice(0, 10) === yesterday);
-  const learned = yAttempts.length
-    ? `Yesterday you practiced Level ${yAttempts[0].level} and reached ${yAttempts[0].wpm} WPM at ${yAttempts[0].accuracy}% accuracy.`
-    : "No saved practice from yesterday yet. Your first session will create your learning history.";
   const comp = Object.keys(data.completed).length;
-  const weak = computeWeakKeys(data.keyStats);
   const current = Math.min(data.currentLevel, 50);
+  const journeyPct = Math.round((comp / 50) * 100);
+  const weak = computeWeakKeys(data.keyStats);
+  const recent = data.attempts?.[0];
+  const keys = ["Q","W","E","R","T","Y","U","I","O","P","A","S","D","F","G","H","J","K","L",";"];
 
   return <div className="dashboard">
-    <div className="hero">
+    <div className="dashboardIntro">
       <div>
-        <p className="eyebrow">WELCOME BACK, {(data.profile?.name || "PLAYER").toUpperCase()}</p>
-        <h1>Ready to get<br/><span>faster?</span></h1>
-        <p className="muted heroCopy">Your personal typing coach tracks accuracy, speed and weak keys so every session has a purpose.</p>
-        <div className="heroActions">
-          <button className="primary bigBtn" onClick={() => onStart(level.id)}>▶ Continue Level {level.id}</button>
-          <button className="ghost bigBtn" onClick={onMap}>View all levels</button>
-        </div>
+        <p className="eyebrow">YOUR TYPING COACH</p>
+        <h1>Build speed.<br/><span>Keep accuracy.</span></h1>
+        <p className="muted introText">A focused practice session is waiting for you. Your next goal is <b>Level {level.id}</b>.</p>
       </div>
-      <div className="heroOrb">
-        <span>⌨</span>
-        <small>LEVEL {current} / 50</small>
+      <div className="sessionCard">
+        <div className="sessionTop"><span className="liveDot"/> READY TO PRACTICE <span className="sessionLevel">LV {level.id}</span></div>
+        <div className="sessionTitle">{level.title}</div>
+        <div className="sessionMeta"><span>{level.tier}</span><span>Target {level.targetWpm} WPM</span><span>Min {level.minAccuracy}%</span></div>
+        <button className="primary sessionBtn" onClick={() => onStart(level.id)}>Start Level {level.id} <span>→</span></button>
       </div>
     </div>
 
-    <div className="grid four statGrid">
-      <Metric label="Best WPM" value={data.bestWpm || "—"} icon="⚡"/>
-      <Metric label="Best accuracy" value={data.bestAccuracy ? data.bestAccuracy + "%" : "—"} icon="◎"/>
-      <Metric label="Levels cleared" value={`${comp}/50`} icon="◈"/>
-      <Metric label="Current streak" value={`${data.streak || 0} day${data.streak === 1 ? "" : "s"}`} icon="🔥"/>
-    </div>
-
-    <div className="grid two">
-      <div className="card continue">
-        <div className="sectionHead">
-          <div>
-            <p className="eyebrow">CONTINUE JOURNEY</p>
-            <h2>Level {level.id}: {level.title}</h2>
-          </div>
-          <span className="pill">{level.tier}</span>
-        </div>
-        <p className="muted">{level.objective}</p>
-        <div className="bar"><i style={{ width: `${Math.min(100, (comp / 50) * 100)}%` }}/></div>
-        <div className="row between">
-          <small>{comp} of 50 levels cleared</small>
-          <button className="primary" onClick={() => onStart(level.id)}>Start →</button>
+    <div className="journeyCard card">
+      <div className="journeyHeader">
+        <div><p className="eyebrow">YOUR JOURNEY</p><h2>50 levels to mastery</h2></div>
+        <button className="textbtn" onClick={onMap}>Open level map →</button>
+      </div>
+      <div className="journeyTrack">
+        <div className="journeyLine"><i style={{width: `${Math.max(3, journeyPct)}%`}}/></div>
+        <div className="journeyNodes">
+          {[1,10,30,50].map(n => <div key={n} className={`journeyNode ${current >= n ? "passed" : ""} ${current === n ? "current" : ""}`}>
+            <span>{n === 50 ? "★" : n}</span><small>{n === 1 ? "START" : n === 10 ? "BASIC" : n === 30 ? "ADVANCED" : "BOSS"}</small>
+          </div>)}
         </div>
       </div>
+      <div className="journeyFoot"><span><b>{comp}</b> / 50 completed</span><span>{journeyPct}% journey progress</span></div>
+    </div>
 
-      <div className="card mission">
-        <div className="sectionHead">
-          <div>
-            <p className="eyebrow">TODAY'S MISSION</p>
-            <h2>10 minutes of focused typing</h2>
-          </div>
-          <span className="missionIcon">◷</span>
-        </div>
-        <div className="missionProgress">
+    <div className="dashboardGrid">
+      <div className="card coachCard">
+        <div className="cardLabel"><span className="labelIcon">✦</span><span>ADAPTIVE COACH</span></div>
+        {weak.length > 0 ? <>
+          <h2>I found something to work on.</h2>
+          <p className="muted">Your typing data shows these keys need more attention.</p>
+          <div className="coachKeys">{weak.map(k => <span key={k}>{k.toUpperCase()}</span>)}</div>
+          <button className="ghost coachBtn" onClick={onStats}>Open targeted drill <span>→</span></button>
+        </> : <>
+          <h2>Your coach is ready.</h2>
+          <p className="muted">Complete your first challenge and TypeQuest will start identifying the keys that slow you down.</p>
+          <button className="ghost coachBtn" onClick={() => onStart(level.id)}>Start collecting data <span>→</span></button>
+        </>}
+      </div>
+
+      <div className="card missionCard">
+        <div className="cardLabel"><span className="labelIcon">◷</span><span>TODAY</span></div>
+        <div className="missionMain">
           <div className="missionRing"><b>{daily}</b><small>/ 10 min</small></div>
-          <div>
-            <strong>{mins >= 10 ? "Mission complete" : `${10 - daily} min left`}</strong>
-            <p className="muted">{mins >= 10 ? "Nice work. Keep your streak alive." : "One short session is enough to keep momentum."}</p>
-          </div>
+          <div><h2>Keep the streak alive.</h2><p className="muted">{mins >= 10 ? "Today's practice goal is complete." : `${10 - daily} minutes of focused typing left today.`}</p></div>
         </div>
+        <div className="miniBar"><i style={{width: `${daily * 10}%`}}/></div>
       </div>
     </div>
 
-    {weak.length > 0 && <div className="card adaptiveBanner">
-      <div>
-        <p className="eyebrow">ADAPTIVE COACH</p>
-        <h2>Your next drill is ready.</h2>
-        <p className="muted">Focus on these weak keys: {weak.map(k => <span className="weakChip" key={k}>{k.toUpperCase()}</span>)}</p>
-      </div>
-      <button className="primary" onClick={onStats}>Practice weak keys →</button>
-    </div>}
-
-    <div className="quickSection">
-      <div className="sectionTitle">
-        <div>
-          <p className="eyebrow">YOUR WORKSPACE</p>
-          <h2>Everything in one place</h2>
+    <div className="dashboardGrid lowerGrid">
+      <div className="card performanceCard">
+        <div className="cardLabel"><span className="labelIcon">↗</span><span>PERFORMANCE</span></div>
+        <div className="performanceStats">
+          <div><small>BEST SPEED</small><strong>{data.bestWpm || "—"}<em> WPM</em></strong></div>
+          <div><small>BEST ACCURACY</small><strong>{data.bestAccuracy ? data.bestAccuracy : "—"}<em>{data.bestAccuracy ? "%" : ""}</em></strong></div>
+          <div><small>STREAK</small><strong>{data.streak || 0}<em> days</em></strong></div>
         </div>
-        <span className="muted">Jump back in anytime</span>
+        {recent ? <div className="lastSession">Last session · Level {recent.level} · {recent.wpm} WPM · {recent.accuracy}% accuracy</div> : <div className="lastSession">Your first completed challenge will appear here.</div>}
       </div>
-      <div className="quickGrid">
-        <button className="quickAction" onClick={onMap}>
-          <span className="quickIcon">◈</span>
-          <span><b>Level Map</b><small>Explore all 50 levels</small></span>
-          <strong>→</strong>
-        </button>
-        <button className="quickAction" onClick={onStats}>
-          <span className="quickIcon">▣</span>
-          <span><b>Progress & Analytics</b><small>WPM, accuracy & weak keys</small></span>
-          <strong>→</strong>
-        </button>
-        <button className="quickAction" onClick={onHistory}>
-          <span className="quickIcon">◷</span>
-          <span><b>Practice History</b><small>Review your past attempts</small></span>
-          <strong>→</strong>
-        </button>
-        <button className="quickAction" onClick={onGuide}>
-          <span className="quickIcon">⌨</span>
-          <span><b>Finger Guide</b><small>Quick reference for placement</small></span>
-          <strong>→</strong>
-        </button>
+
+      <div className="card keyboardCard">
+        <div className="keyboardHeader"><div><p className="eyebrow">TRAINING BOARD</p><h2>Your keyboard</h2></div><button className="textbtn" onClick={onGuide}>Finger guide</button></div>
+        <div className="miniKeyboard">{keys.map(k => <span key={k} className={weak.includes(k.toLowerCase()) ? "weakKey" : ""}>{k}</span>)}</div>
       </div>
     </div>
 
-    <div className="card yesterday">
-      <p className="eyebrow">RECENT LEARNING</p>
-      <h2>Keep building your skill.</h2>
-      <p className="muted">{learned}</p>
-      <button className="textbtn" onClick={onHistory}>View practice history →</button>
+    <div className="quickStrip">
+      <button onClick={onMap}><span>◈</span><b>Level Map</b><small>50 levels</small><i>→</i></button>
+      <button onClick={onStats}><span>▣</span><b>Analytics</b><small>Find weak keys</small><i>→</i></button>
+      <button onClick={onHistory}><span>◷</span><b>History</b><small>Past sessions</small><i>→</i></button>
+      <button onClick={onGuide}><span>⌨</span><b>Finger Guide</b><small>Quick reference</small><i>→</i></button>
     </div>
   </div>;
 }
