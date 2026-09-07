@@ -351,7 +351,6 @@ function TypeQuestApp() {
   if (storageError) return <StorageError message={storageError} />;
   if (!data) return null;
   if (!data.profile) return <Login configured={isCloudConfigured} busy={cloudBusy} error={cloudError} onCloudAuth={handleCloudAuth} onLocalLogin={name => setData({ ...data, profile: { name, createdAt: new Date().toISOString() }, firstGuideSeen: false })} />;
-  if (!data.firstGuideSeen) return <FingerGuide onStart={() => setData({ ...data, firstGuideSeen: true })} />;
 
   const level = LEVELS[selected - 1];
   const completedCount = Object.keys(data.completed).length;
@@ -451,9 +450,9 @@ function TypeQuestApp() {
 
   return <div className={data.settings.theme === "light" ? "app light" : "app"}>
     <header className="topbar"><div className="brand" onClick={() => setView("dashboard")}><span className="logo">⌨</span><div><b>TypeQuest</b><small>adaptive typing coach {cloudUser ? "• cloud synced" : "• local"}</small></div></div><div className="topstats"><span>⭐ {data.totalStars}</span><span>⚡ {data.xp} XP</span><span>🔥 {data.streak}</span><button className="ghost" onClick={() => setData({ ...data, settings: { ...data.settings, theme: data.settings.theme === "dark" ? "light" : "dark" } })}>☼</button></div></header>
-    <main className="shell"><aside className="sidebar"><button className={view === "dashboard" ? "nav active" : "nav"} onClick={() => setView("dashboard")}>⌂ Dashboard</button><button className={view === "map" ? "nav active" : "nav"} onClick={() => setView("map")}>◈ Level Map</button><button className={view === "history" ? "nav active" : "nav"} onClick={() => setView("history")}>◷ History</button><button className={view === "stats" ? "nav active" : "nav"} onClick={() => setView("stats")}>▣ Progress</button><div className="sidebottom"><button className="nav" onClick={() => setShowBackup(true)}>⇅ Backup</button><button className="nav" onClick={() => setData({ ...data, firstGuideSeen: false })}>⌨ Finger Guide</button>{cloudUser ? <button className="nav" onClick={handleLogout} disabled={cloudBusy}>⇤ Log out</button> : <button className="nav" onClick={() => setData({ ...data, profile: null })}>⇤ Change Name</button>}<button className="nav danger" onClick={resetAll}>⌫ Reset Data</button></div></aside>
+    <main className="shell"><aside className="sidebar"><button className={view === "dashboard" ? "nav active" : "nav"} onClick={() => setView("dashboard")}>⌂ Dashboard</button><button className={view === "map" ? "nav active" : "nav"} onClick={() => setView("map")}>◈ Level Map</button><button className={view === "history" ? "nav active" : "nav"} onClick={() => setView("history")}>◷ History</button><button className={view === "stats" ? "nav active" : "nav"} onClick={() => setView("stats")}>▣ Progress</button><div className="sidebottom"><button className="nav" onClick={() => setShowBackup(true)}>⇅ Backup</button><button className={view === "guide" ? "nav active" : "nav"} onClick={() => setView("guide")}>⌨ Finger Guide</button>{cloudUser ? <button className="nav" onClick={handleLogout} disabled={cloudBusy}>⇤ Log out</button> : <button className="nav" onClick={() => setData({ ...data, profile: null })}>⇤ Change Name</button>}<button className="nav danger" onClick={resetAll}>⌫ Reset Data</button></div></aside>
       <section className="content">
-        {view === "dashboard" && <Dashboard data={data} level={LEVELS[Math.min(data.currentLevel, 50) - 1]} onStart={startLevel} onMap={() => setView("map")} onStats={() => setView("stats")} />}
+        {view === "dashboard" && <Dashboard data={data} level={LEVELS[Math.min(data.currentLevel, 50) - 1]} onStart={startLevel} onMap={() => setView("map")} onStats={() => setView("stats")} onHistory={() => setView("history")} onGuide={() => setView("guide")} />}
         {view === "map" && <LevelMap data={data} onStart={startLevel} />}
         {view === "learn" && <Learn level={level} onStart={() => setView("warmup")} />}
         {view === "warmup" && <TypingStage key={`warmup-${selected}`} level={level} stage="warmup" text={level.warmup} exactCase={level.id >= 11} onDone={(delta) => { addKeyStats(delta); setView("practice"); }} onSkip={(delta) => { addKeyStats(delta); setView("practice"); }} />}
@@ -462,6 +461,7 @@ function TypeQuestApp() {
         {view === "results" && <Results level={level} data={data} onNext={() => selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
         {view === "history" && <History data={data} />}
         {view === "stats" && <Stats data={data} onDrill={() => setView("weakdrill")} />}
+        {view === "guide" && <FingerGuide onStart={() => setView("dashboard")} />}
         {view === "weakdrill" && <WeakDrill data={data} onBack={() => setView("stats")} onDone={addKeyStats} />}
       </section>
     </main>
@@ -498,7 +498,127 @@ function Login({ configured, busy, error, onCloudAuth, onLocalLogin }) {
     </form> : <><input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Enter your name" maxLength={24}/><button className="primary full" disabled={!name.trim()} onClick={() => onLocalLogin(name.trim())}>Start local profile →</button></>}
   </div></div>;
 }
-function Dashboard({ data, level, onStart, onMap, onStats }) { const day = todayKey(), mins = Math.floor(data.dailyMinutes?.[day] || 0), daily = Math.min(10, mins); const yesterday = offsetDayKey(-1); const yAttempts = data.attempts.filter(a => a.date.slice(0, 10) === yesterday); const learned = yAttempts.length ? `Yesterday you practiced Level ${yAttempts[0].level} and reached ${yAttempts[0].wpm} WPM at ${yAttempts[0].accuracy}% accuracy.` : "No saved practice from yesterday yet. Your first session will create your learning history."; const comp = Object.keys(data.completed).length; const weak = computeWeakKeys(data.keyStats); return <div><div className="hero"><div><p className="eyebrow">WELCOME BACK, {data.profile.name.toUpperCase()}</p><h1>Ready to get<br/><span>faster?</span></h1><p className="muted">TypeQuest learns from your mistakes and turns them into targeted practice.</p></div><div className="heroOrb">⌨<small>LVL {Math.min(data.currentLevel, 50)}</small></div></div><div className="grid four"><Metric label="Best WPM" value={data.bestWpm || "—"} icon="⚡"/><Metric label="Best accuracy" value={data.bestAccuracy ? data.bestAccuracy + "%" : "—"} icon="◎"/><Metric label="Levels cleared" value={`${comp}/50`} icon="◈"/><Metric label="Current streak" value={`${data.streak || 0} day${data.streak === 1 ? "" : "s"}`} icon="🔥"/></div><div className="grid two"><div className="card continue"><div className="sectionHead"><div><p className="eyebrow">CONTINUE JOURNEY</p><h2>Level {level.id}: {level.title}</h2></div><span className="pill">{level.tier}</span></div><p>{level.objective}</p><div className="bar"><i style={{ width: `${Math.min(100, (comp / 50) * 100)}%` }}/></div><div className="row between"><small>{comp} of 50 cleared</small><button className="primary" onClick={() => onStart(level.id)}>Continue →</button></div></div><div className="card mission"><p className="eyebrow">TODAY'S MISSION</p><h2>10 minutes of focused typing</h2><div className="missionRing"><b>{daily}</b><small>/ 10 min</small></div><p className="muted">{mins >= 10 ? "Mission complete. Nice work." : "One short session is enough to keep momentum."}</p></div></div>{weak.length > 0 && <div className="card adaptiveBanner"><div><p className="eyebrow">ADAPTIVE COACH</p><h2>Your next drill is ready.</h2><p className="muted">Weak keys: {weak.map(k => <span className="weakChip" key={k}>{k.toUpperCase()}</span>)}</p></div><button className="primary" onClick={onStats}>Practice weak keys →</button></div>}<div className="card yesterday"><p className="eyebrow">WHAT YOU LEARNED YESTERDAY</p><p>{learned}</p><button className="textbtn" onClick={onMap}>Open level map →</button></div></div>; }
+function Dashboard({ data, level, onStart, onMap, onStats, onHistory, onGuide }) {
+  const day = todayKey();
+  const mins = Math.floor(data.dailyMinutes?.[day] || 0);
+  const daily = Math.min(10, mins);
+  const yesterday = offsetDayKey(-1);
+  const yAttempts = data.attempts.filter(a => a.date.slice(0, 10) === yesterday);
+  const learned = yAttempts.length
+    ? `Yesterday you practiced Level ${yAttempts[0].level} and reached ${yAttempts[0].wpm} WPM at ${yAttempts[0].accuracy}% accuracy.`
+    : "No saved practice from yesterday yet. Your first session will create your learning history.";
+  const comp = Object.keys(data.completed).length;
+  const weak = computeWeakKeys(data.keyStats);
+  const current = Math.min(data.currentLevel, 50);
+
+  return <div className="dashboard">
+    <div className="hero">
+      <div>
+        <p className="eyebrow">WELCOME BACK, {(data.profile?.name || "PLAYER").toUpperCase()}</p>
+        <h1>Ready to get<br/><span>faster?</span></h1>
+        <p className="muted heroCopy">Your personal typing coach tracks accuracy, speed and weak keys so every session has a purpose.</p>
+        <div className="heroActions">
+          <button className="primary bigBtn" onClick={() => onStart(level.id)}>▶ Continue Level {level.id}</button>
+          <button className="ghost bigBtn" onClick={onMap}>View all levels</button>
+        </div>
+      </div>
+      <div className="heroOrb">
+        <span>⌨</span>
+        <small>LEVEL {current} / 50</small>
+      </div>
+    </div>
+
+    <div className="grid four statGrid">
+      <Metric label="Best WPM" value={data.bestWpm || "—"} icon="⚡"/>
+      <Metric label="Best accuracy" value={data.bestAccuracy ? data.bestAccuracy + "%" : "—"} icon="◎"/>
+      <Metric label="Levels cleared" value={`${comp}/50`} icon="◈"/>
+      <Metric label="Current streak" value={`${data.streak || 0} day${data.streak === 1 ? "" : "s"}`} icon="🔥"/>
+    </div>
+
+    <div className="grid two">
+      <div className="card continue">
+        <div className="sectionHead">
+          <div>
+            <p className="eyebrow">CONTINUE JOURNEY</p>
+            <h2>Level {level.id}: {level.title}</h2>
+          </div>
+          <span className="pill">{level.tier}</span>
+        </div>
+        <p className="muted">{level.objective}</p>
+        <div className="bar"><i style={{ width: `${Math.min(100, (comp / 50) * 100)}%` }}/></div>
+        <div className="row between">
+          <small>{comp} of 50 levels cleared</small>
+          <button className="primary" onClick={() => onStart(level.id)}>Start →</button>
+        </div>
+      </div>
+
+      <div className="card mission">
+        <div className="sectionHead">
+          <div>
+            <p className="eyebrow">TODAY'S MISSION</p>
+            <h2>10 minutes of focused typing</h2>
+          </div>
+          <span className="missionIcon">◷</span>
+        </div>
+        <div className="missionProgress">
+          <div className="missionRing"><b>{daily}</b><small>/ 10 min</small></div>
+          <div>
+            <strong>{mins >= 10 ? "Mission complete" : `${10 - daily} min left`}</strong>
+            <p className="muted">{mins >= 10 ? "Nice work. Keep your streak alive." : "One short session is enough to keep momentum."}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {weak.length > 0 && <div className="card adaptiveBanner">
+      <div>
+        <p className="eyebrow">ADAPTIVE COACH</p>
+        <h2>Your next drill is ready.</h2>
+        <p className="muted">Focus on these weak keys: {weak.map(k => <span className="weakChip" key={k}>{k.toUpperCase()}</span>)}</p>
+      </div>
+      <button className="primary" onClick={onStats}>Practice weak keys →</button>
+    </div>}
+
+    <div className="quickSection">
+      <div className="sectionTitle">
+        <div>
+          <p className="eyebrow">YOUR WORKSPACE</p>
+          <h2>Everything in one place</h2>
+        </div>
+        <span className="muted">Jump back in anytime</span>
+      </div>
+      <div className="quickGrid">
+        <button className="quickAction" onClick={onMap}>
+          <span className="quickIcon">◈</span>
+          <span><b>Level Map</b><small>Explore all 50 levels</small></span>
+          <strong>→</strong>
+        </button>
+        <button className="quickAction" onClick={onStats}>
+          <span className="quickIcon">▣</span>
+          <span><b>Progress & Analytics</b><small>WPM, accuracy & weak keys</small></span>
+          <strong>→</strong>
+        </button>
+        <button className="quickAction" onClick={onHistory}>
+          <span className="quickIcon">◷</span>
+          <span><b>Practice History</b><small>Review your past attempts</small></span>
+          <strong>→</strong>
+        </button>
+        <button className="quickAction" onClick={onGuide}>
+          <span className="quickIcon">⌨</span>
+          <span><b>Finger Guide</b><small>Quick reference for placement</small></span>
+          <strong>→</strong>
+        </button>
+      </div>
+    </div>
+
+    <div className="card yesterday">
+      <p className="eyebrow">RECENT LEARNING</p>
+      <h2>Keep building your skill.</h2>
+      <p className="muted">{learned}</p>
+      <button className="textbtn" onClick={onHistory}>View practice history →</button>
+    </div>
+  </div>;
+}
 function Metric({ label, value, icon }) { return <div className="metric"><span>{icon}</span><small>{label}</small><strong>{value}</strong></div>; }
 
 function LevelMap({ data, onStart }) { return <div><div className="pageTitle"><p className="eyebrow">THE JOURNEY</p><h1>50 levels. One skill.</h1><p className="muted">Each level unlocks the next. Clear it with the required accuracy.</p></div>{["Basic", "Intermediate", "Advanced"].map(tier => <div key={tier} className="tier"><div className="tierTitle"><h2>{tier}</h2><span>{tier === "Basic" ? "1–10" : tier === "Intermediate" ? "11–30" : "31–50"}</span></div><div className="levelGrid">{LEVELS.filter(l => l.tier === tier).map(l => { const p = data.completed[l.id], open = l.id <= data.currentLevel; return <button key={l.id} disabled={!open} className={`levelTile ${open ? "open" : "locked"} ${p ? "done" : ""}`} onClick={() => onStart(l.id)}><b>{p ? `⭐ ${p.stars}` : open ? "→" : "🔒"}</b><strong>{l.id}</strong><small>{l.title}</small><em>{l.targetWpm} WPM</em></button>; })}</div></div>)}</div>; }
@@ -620,7 +740,7 @@ function Stats({ data, onDrill }) { const weak = computeWeakKeys(data.keyStats);
 
 function WeakDrill({ data, onBack, onDone }) { const textRef = useRef(buildDrillText(data.keyStats)); const weakRef = useRef(computeWeakKeys(data.keyStats)); const text = textRef.current; const weak = weakRef.current; return <div><StageIndicator current="Practice"/><div className="pageTitle"><p className="eyebrow">PERSONALIZED TRAINING</p><h1>Practice your weak keys.</h1><p className="muted">This drill is generated from your saved mistake history. The target is frozen for this session so it cannot reset while you type.</p></div><div className="card adaptiveBanner"><div><b>Target keys</b><div className="weakList">{weak.map(k => <span className="weakChip" key={k}>{k.toUpperCase()}</span>)}</div></div></div><TypingStage key="weak-drill" level={LEVELS[0]} stage="practice" text={text} onDone={(delta) => { onDone(delta); onBack(); }} onSkip={(delta) => { onDone(delta); onBack(); }}/><button className="textbtn" onClick={onBack}>← Back to analytics</button></div>; }
 
-function FingerGuide({ onStart }) { const left = [["A","LITTLE"],["S","RING"],["D","MIDDLE"],["F","INDEX"]], right = [["J","INDEX"],["K","MIDDLE"],["L","RING"],[";","LITTLE"]]; return <div className="fingerGuide"><div className="pageTitle"><p className="eyebrow">FIRST SESSION • FINGER PLACEMENT</p><h1>Start with the<br/><span>right hand position.</span></h1><p className="muted">Before Level 1 begins, place your fingers correctly. This guide appears automatically on your first session.</p></div><div className="card handCard"><div className="keyboardMini"><div className="keyRow">{["Q","W","E","R","T","Y","U","I","O","P"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow homeKeys">{["A","S","D","F","G","H","J","K","L",";"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow">{["Z","X","C","V","B","N","M",",",".","/"].map(k => <span key={k}>{k}</span>)}</div></div><div className="placementGrid"><Placement title="Left hand" keys={left}/><Placement title="Right hand" keys={right}/></div><div className="guideRules"><div><b>F & J are anchors</b><small>Keep your index fingers on the raised bumps.</small></div><div><b>Thumbs → Space</b><small>Use either thumb comfortably.</small></div><div><b>Eyes on the text</b><small>Try not to look down at the keyboard.</small></div></div></div><div className="challengePreview card"><div><p className="eyebrow">LEVEL 1 IS READY</p><h2>Hands in position?</h2><p className="muted">Click below to continue to your first lesson.</p></div><button className="primary" onClick={onStart}>Start Level 1 →</button></div></div>; }
+function FingerGuide({ onStart }) { const left = [["A","LITTLE"],["S","RING"],["D","MIDDLE"],["F","INDEX"]], right = [["J","INDEX"],["K","MIDDLE"],["L","RING"],[";","LITTLE"]]; return <div className="fingerGuide"><div className="pageTitle"><p className="eyebrow">FINGER GUIDE • QUICK REFERENCE</p><h1>Start with the<br/><span>right hand position.</span></h1><p className="muted">Use this quick reference anytime to check finger placement before practice.</p></div><div className="card handCard"><div className="keyboardMini"><div className="keyRow">{["Q","W","E","R","T","Y","U","I","O","P"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow homeKeys">{["A","S","D","F","G","H","J","K","L",";"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow">{["Z","X","C","V","B","N","M",",",".","/"].map(k => <span key={k}>{k}</span>)}</div></div><div className="placementGrid"><Placement title="Left hand" keys={left}/><Placement title="Right hand" keys={right}/></div><div className="guideRules"><div><b>F & J are anchors</b><small>Keep your index fingers on the raised bumps.</small></div><div><b>Thumbs → Space</b><small>Use either thumb comfortably.</small></div><div><b>Eyes on the text</b><small>Try not to look down at the keyboard.</small></div></div></div><div className="challengePreview card"><div><p className="eyebrow">QUICK REFERENCE</p><h2>Ready to practice?</h2><p className="muted">Return to your dashboard and start a level whenever you are ready.</p></div><button className="primary" onClick={onStart}>Back to dashboard →</button></div></div>; }
 function Placement({ title, keys }) { return <div className="placementCol"><h3>{title}</h3>{keys.map(([key,finger]) => <div className="fingerRow" key={key}><b>{key}</b><span>{finger} finger</span></div>)}</div>; }
 function Empty({ text }) { return <div className="empty">{text}</div>; }
 function Backup({ data, setData, close }) { const fileRef = useRef(); const download = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `typequest-backup-${todayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }; const importFile = async e => { const f = e.target.files?.[0]; if (!f) return; try { if (f.size > 2 * 1024 * 1024) throw Error("Backup is too large"); const d = JSON.parse(await f.text()); if (!d || typeof d !== "object" || Array.isArray(d) || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) || !Array.isArray(d.attempts) || d.attempts.length > 500) throw Error("Invalid backup"); const clean = normalizeData(d); setData(clean); close(); } catch { alert("That backup file is not a valid TypeQuest backup."); } finally { e.target.value = ""; } }; return <div className="modalWrap"><div className="modal card"><button className="close" onClick={close}>×</button><p className="eyebrow">LOCAL BACKUP</p><h2>Keep your progress safe</h2><p className="muted">Export a JSON copy. It never goes to the cloud.</p><button className="primary full" onClick={download}>Download backup</button><button className="ghost full" onClick={() => fileRef.current.click()}>Import backup</button><input ref={fileRef} hidden type="file" accept=".json" onChange={importFile}/></div></div>; }
