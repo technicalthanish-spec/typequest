@@ -147,692 +147,597 @@ button:not(:disabled):hover{transform:translateY(-1px)}
 }
 
 /* =========================================================
-   INTERACTIVE FINGER LESSON — UPDATED
+   TYPEQUEST — INTERACTIVE FINGER GUIDE
+   Namespaced intentionally so existing app pages are untouched.
    ========================================================= */
 
-/* =========================================================
-   INTERACTIVE FINGER LESSON
-   ========================================================= */
+.tqFingerGuide {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px 0 34px;
+  color: #f4f7fb;
+}
+
+.tqFingerGuide *,
+.tqFingerGuide *::before,
+.tqFingerGuide *::after {
+  box-sizing: border-box;
+}
+
+.tqFingerGuideHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
 
-.fingerLesson{
-  max-width:1180px;
-  margin:0 auto;
-  padding-bottom:35px;
+.tqFingerGuideEyebrow {
+  margin: 0 0 9px;
+  color: #7f8b9d;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
 }
 
-.lessonHeader{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  gap:30px;
-  margin-bottom:20px;
+.tqFingerGuideHead h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: .98;
+  letter-spacing: -.045em;
 }
 
-.lessonHeader h1{
-  font:700 clamp(38px,4.5vw,60px) "Space Grotesk";
-  line-height:1;
-  letter-spacing:-.045em;
-  margin:0 0 14px;
+.tqFingerGuideHead h1 span {
+  color: #65e6c7;
 }
 
-.lessonHeader h1 span{
-  background:linear-gradient(90deg,#9b7cff,#d36dff);
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
+.tqFingerGuideMuted {
+  max-width: 650px;
+  margin: 15px 0 0;
+  color: #8f9bae;
+  line-height: 1.65;
 }
 
-.lessonProgressBox{
-  min-width:100px;
-  height:100px;
-  border-radius:20px;
-  border:1px solid #40386c;
-  background:linear-gradient(145deg,#17142f,#10162b);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 20px 50px #6b50ff16;
+.tqFingerGuideBack,
+.tqFingerGuidePrimary,
+.tqFingerGuideSecondary {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 11px 15px;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  transition: .2s ease;
 }
 
-.lessonProgressBox span{
-  color:#858fab;
-  font-size:9px;
-  font-weight:800;
-  letter-spacing:.15em;
+.tqFingerGuideBack {
+  background: rgba(255,255,255,.035);
+  color: #dce4ed;
 }
 
-.lessonProgressBox strong{
-  font:700 34px "Space Grotesk";
-  color:#fff;
-  line-height:1;
-  margin:5px 0;
+.tqFingerGuideBack:hover,
+.tqFingerGuideSecondary:hover {
+  border-color: rgba(101,230,199,.35);
+  transform: translateY(-1px);
 }
 
-.lessonProgressBox small{
-  color:#727d98;
-  font-size:10px;
+.tqFingerGuideProgress {
+  padding: 15px 18px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
 }
 
-.fingerProgress{
-  display:flex;
-  gap:7px;
-  margin-bottom:18px;
+.tqFingerGuideProgressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #7f8b9d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
 }
 
-.progressDot{
-  height:5px;
-  flex:1;
-  max-width:110px;
-  border-radius:10px;
-  background:#222b43;
-  transition:all .35s ease;
-}
-
-.progressDot.active{
-  background:linear-gradient(90deg,#7c5cff,#b76dff);
-  box-shadow:0 0 15px #8065ff66;
+.tqFingerGuideProgressTop b {
+  color: #cbd4df;
+  font-size: 11px;
 }
 
-.progressDot.done{
-  background:#43d8b3;
-}
-
-.fingerLessonGrid{
-  display:grid;
-  grid-template-columns:.85fr 1.15fr;
-  gap:17px;
+.tqFingerGuideProgressTrack {
+  height: 4px;
+  margin-top: 11px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255,255,255,.07);
 }
-
-.handStage,
-.keyboardStage{
-  min-height:540px;
-  position:relative;
-  overflow:hidden;
+
+.tqFingerGuideProgressTrack i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #65e6c7;
+  box-shadow: 0 0 14px rgba(101,230,199,.45);
+  transition: width .35s ease;
 }
 
-.stageLabel{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  color:#7f8aa5;
-  font-size:9px;
-  letter-spacing:.15em;
-  font-weight:800;
-}
-
-.stageLabel span{
-  width:25px;
-  height:25px;
-  border-radius:7px;
-  display:grid;
-  place-items:center;
-  background:#28234b;
-  color:#aa9aff;
-  font-size:9px;
-}
-
-/* ---------- HAND ---------- */
-
-.handVisual{
-  height:315px;
-  position:relative;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  margin-top:10px;
-}
-
-.handGlow{
-  position:absolute;
-  width:230px;
-  height:230px;
-  border-radius:50%;
-  background:#795cff18;
-  filter:blur(25px);
-  animation:handPulse 2.5s infinite;
-}
-
-@keyframes handPulse{
-  0%,100%{transform:scale(.92);opacity:.55}
-  50%{transform:scale(1.08);opacity:1}
-}
-
-.fakeHand{
-  position:relative;
-  width:190px;
-  height:240px;
-  transform:rotate(-8deg);
-  margin-top:60px;
-}
-
-.palm{
-  position:absolute;
-  width:135px;
-  height:135px;
-  bottom:10px;
-  left:25px;
-  border-radius:55px 55px 45px 45px;
-  background:linear-gradient(145deg,#aa8cff,#5b46b9);
-  box-shadow:
-    inset 10px 10px 20px #ffffff22,
-    inset -12px -12px 25px #211652,
-    0 25px 45px #0008;
-}
-
-.finger{
-  position:absolute;
-  width:31px;
-  border-radius:18px 18px 12px 12px;
-  background:linear-gradient(145deg,#b59aff,#6149c3);
-  box-shadow:
-    inset 5px 5px 10px #ffffff25,
-    inset -6px -8px 12px #26165d,
-    0 8px 20px #0006;
-  transform-origin:bottom;
+.tqFingerGuideLesson {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(101,230,199,.075), transparent 34%),
+    linear-gradient(145deg, rgba(25,31,40,.98), rgba(14,18,24,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.22);
 }
-
-.finger-pinky{
-  height:90px;
-  left:3px;
-  bottom:87px;
-  transform:rotate(-18deg);
-}
-
-.finger-ring{
-  height:128px;
-  left:35px;
-  bottom:100px;
-  transform:rotate(-7deg);
-}
-
-.finger-middle{
-  height:150px;
-  left:70px;
-  bottom:105px;
-}
-
-.finger-index{
-  height:137px;
-  left:106px;
-  bottom:99px;
-  transform:rotate(8deg);
-}
-
-.activeFinger{
-  filter:brightness(1.3);
-  box-shadow:
-    0 0 25px #a98cff,
-    inset 5px 5px 10px #ffffff35,
-    inset -6px -8px 12px #26165d;
-  animation:fingerBounce 1.2s ease-in-out infinite;
+
+.tqFingerGuideLesson.correct {
+  border-color: rgba(101,230,199,.3);
 }
 
-@keyframes fingerBounce{
-  0%,100%{translate:0 0}
-  50%{translate:0 -13px}
+.tqFingerGuideLesson.wrong {
+  border-color: rgba(255,100,105,.3);
 }
 
-.thumb{
-  position:absolute;
-  width:38px;
-  height:100px;
-  bottom:25px;
-  left:128px;
-  border-radius:22px;
-  background:linear-gradient(145deg,#a98cff,#5d46bc);
-  transform:rotate(42deg);
-  box-shadow:inset 5px 5px 10px #ffffff25,inset -6px -8px 12px #26165d;
+.tqFingerGuideLessonTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid rgba(255,255,255,.065);
 }
 
-.fingerPointer{
-  position:absolute;
-  top:3px;
-  left:50%;
-  transform:translateX(-50%);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:3px;
-  color:#b6a8ff;
-  animation:pointerFloat 1.3s infinite;
-  z-index:5;
+.tqFingerGuideTargetLetter {
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.05em;
+  color: #65e6c7;
+  text-shadow: 0 0 28px rgba(101,230,199,.25);
 }
 
-.fingerPointer span{
-  font-size:34px;
-  line-height:1;
-}
-
-.fingerPointer small{
-  font-size:8px;
-  font-weight:900;
-  letter-spacing:.14em;
-  white-space:nowrap;
+.tqFingerGuideInstruction {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 290px;
+  padding: 12px 15px;
+  border: 1px solid rgba(255,255,255,.065);
+  border-radius: 13px;
+  background: rgba(0,0,0,.16);
 }
 
-@keyframes pointerFloat{
-  0%,100%{transform:translate(-50%,0)}
-  50%{transform:translate(-50%,7px)}
+.tqFingerGuideInstruction b {
+  display: block;
+  color: #edf2f7;
+  font-size: 13px;
 }
-
-.handVisual.right .fakeHand{
-  transform:scaleX(-1) rotate(-8deg);
+
+.tqFingerGuideInstruction small {
+  display: block;
+  margin-top: 4px;
+  color: #7f8b9d;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .06em;
 }
 
-/* ---------- INSTRUCTION ---------- */
+.tqFingerGuideStatusDot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #65e6c7;
+  box-shadow: 0 0 14px rgba(101,230,199,.7);
+}
 
-.fingerInstruction{
-  display:flex;
-  gap:14px;
-  align-items:center;
-  border-top:1px solid var(--line);
-  padding-top:20px;
+.tqFingerGuideStatusDot.wrong {
+  background: #ff6b70;
+  box-shadow: 0 0 14px rgba(255,107,112,.65);
 }
 
-.instructionIcon{
-  flex:0 0 auto;
-  width:48px;
-  height:48px;
-  border-radius:14px;
-  display:grid;
-  place-items:center;
-  background:#28234c;
-  color:#b6a8ff;
-  font-size:20px;
-  font-weight:900;
+.tqFingerGuideStatusDot.correct {
+  background: #65e6c7;
 }
 
-.instructionIcon.correct{
-  background:#153c35;
-  color:#61e5c0;
-  box-shadow:0 0 25px #45d9b533;
+.tqFingerGuideVisualGrid {
+  display: grid;
+  grid-template-columns: minmax(270px, .8fr) minmax(430px, 1.5fr);
+  gap: 16px;
+  padding: 18px;
 }
 
-.instructionIcon.wrong{
-  background:#40202b;
-  color:#ff7889;
+.tqFingerGuideHandPanel,
+.tqFingerGuideKeyboardPanel {
+  min-height: 330px;
+  border: 1px solid rgba(255,255,255,.065);
+  border-radius: 17px;
+  background: rgba(4,7,11,.34);
 }
 
-.fingerInstruction small{
-  color:#8c96b0;
-  font-size:8px;
-  font-weight:900;
-  letter-spacing:.14em;
+.tqFingerGuidePanelLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
 }
 
-.fingerInstruction h2{
-  font:700 17px "Space Grotesk";
-  margin:4px 0;
+.tqFingerGuidePanelLabel span {
+  color: #6f7b8c;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .14em;
 }
 
-.fingerInstruction p{
-  color:var(--muted);
-  font-size:11px;
-  margin:0;
+.tqFingerGuidePanelLabel b {
+  color: #b9c4d1;
+  font-size: 10px;
 }
 
-/* ---------- KEYBOARD ---------- */
+.tqFingerGuideHand {
+  position: relative;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 700px;
+}
 
-.targetKeyCard{
-  text-align:center;
-  padding:17px 0 18px;
+.tqFingerGuidePalm {
+  position: relative;
+  width: 145px;
+  height: 126px;
+  margin-top: 54px;
+  border: 1px solid rgba(138,154,174,.24);
+  border-radius: 42px 42px 30px 30px;
+  background: linear-gradient(145deg, #2a3340, #151b24);
+  box-shadow: inset 8px 8px 18px rgba(255,255,255,.045), inset -10px -12px 22px rgba(0,0,0,.32), 0 18px 30px rgba(0,0,0,.25);
+  transform: rotateX(8deg);
 }
 
-.targetKeyCard small{
-  display:block;
-  color:#7f8ba5;
-  font-size:8px;
-  letter-spacing:.15em;
-  font-weight:900;
+.tqFingerGuideHand.left .tqFingerGuidePalm {
+  transform: rotateX(8deg) rotateY(-4deg);
 }
 
-.targetKey{
-  width:75px;
-  height:75px;
-  margin:10px auto;
-  border-radius:15px;
-  display:grid;
-  place-items:center;
-  background:linear-gradient(145deg,#2b2553,#17172e);
-  border:2px solid #8068ff;
-  color:#fff;
-  font:700 30px "Space Grotesk";
-  box-shadow:
-    0 0 30px #795cff35,
-    inset 0 1px 0 #ffffff18;
-  animation:keyGlow 1.4s infinite;
+.tqFingerGuideHand.right .tqFingerGuidePalm {
+  transform: rotateX(8deg) rotateY(4deg);
 }
 
-@keyframes keyGlow{
-  0%,100%{transform:scale(1);box-shadow:0 0 25px #795cff35}
-  50%{transform:scale(1.06);box-shadow:0 0 45px #795cff70}
+.tqFingerGuideFinger {
+  position: absolute;
+  bottom: 86px;
+  width: 27px;
+  border: 1px solid rgba(154,171,190,.25);
+  border-radius: 16px 16px 9px 9px;
+  background: linear-gradient(145deg, #35404e, #1c242e);
+  box-shadow: inset 4px 4px 7px rgba(255,255,255,.04), inset -5px -5px 9px rgba(0,0,0,.28);
+  transform-origin: bottom center;
+  transition: .2s ease;
 }
+
+.tqFingerGuideFingerPinky { left: 12px; height: 72px; transform: rotate(-9deg); }
+.tqFingerGuideFingerRing { left: 43px; height: 93px; transform: rotate(-3deg); }
+.tqFingerGuideFingerMiddle { left: 74px; height: 106px; }
+.tqFingerGuideFingerIndex { left: 105px; height: 94px; transform: rotate(4deg); }
 
-.targetKey.correct{
-  background:#153c35;
-  border-color:#51dfbb;
-  color:#71ebca;
-  box-shadow:0 0 35px #42dcb555;
-  animation:none;
-}
+.tqFingerGuideHand.right .tqFingerGuideFingerPinky { left: 106px; transform: rotate(9deg); }
+.tqFingerGuideHand.right .tqFingerGuideFingerRing { left: 75px; transform: rotate(3deg); }
+.tqFingerGuideHand.right .tqFingerGuideFingerMiddle { left: 44px; }
+.tqFingerGuideHand.right .tqFingerGuideFingerIndex { left: 13px; transform: rotate(-4deg); }
+
+.tqFingerGuideFinger.active {
+  border-color: rgba(101,230,199,.72);
+  background: linear-gradient(145deg, #71f0d0, #2a9f88);
+  box-shadow: 0 0 24px rgba(101,230,199,.32), inset 4px 4px 7px rgba(255,255,255,.2);
+  transform: translateY(-6px) scale(1.06);
+}
 
-.targetKey.wrong{
-  background:#421f2b;
-  border-color:#ff667c;
-  color:#ff8797;
-  animation:shake .35s;
+.tqFingerGuideThumb {
+  position: absolute;
+  left: -16px;
+  bottom: 4px;
+  width: 46px;
+  height: 75px;
+  border: 1px solid rgba(154,171,190,.25);
+  border-radius: 30px 12px 14px 27px;
+  background: linear-gradient(145deg, #303b48, #1a222c);
+  transform: rotate(38deg);
 }
 
-@keyframes shake{
-  0%,100%{transform:translateX(0)}
-  25%{transform:translateX(-8px)}
-  75%{transform:translateX(8px)}
+.tqFingerGuideHand.right .tqFingerGuideThumb {
+  left: auto;
+  right: -16px;
+  transform: rotate(-38deg);
 }
 
-.targetKeyCard strong{
-  display:block;
-  font:700 14px "Space Grotesk";
+.tqFingerGuideHandCaption {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  text-align: center;
 }
 
-.targetKeyCard > span{
-  display:block;
-  color:#68748f;
-  font-size:10px;
-  margin-top:3px;
+.tqFingerGuideHandCaption strong {
+  display: block;
+  color: #dfe7ef;
+  font-size: 12px;
 }
 
-/* ---------- BIG KEYBOARD ---------- */
+.tqFingerGuideHandCaption span {
+  display: block;
+  margin-top: 3px;
+  color: #758294;
+  font-size: 10px;
+}
 
-.tutorialKeyboard{
-  background:#090f1d;
-  border:1px solid #202b45;
-  border-radius:17px;
-  padding:16px;
-  box-shadow:
-    inset 0 0 45px #0007,
-    0 15px 35px #0004;
+.tqFingerGuideHandCaption b {
+  color: #65e6c7;
 }
 
-.tutorialKeyRow{
-  display:grid;
-  grid-template-columns:repeat(10,1fr);
-  gap:5px;
-  margin-bottom:5px;
+.tqFingerGuideKeyboard {
+  padding: 26px 18px 18px;
 }
 
-.tutorialKey{
-  height:43px;
-  border-radius:8px;
-  border:1px solid #2a3550;
-  background:linear-gradient(145deg,#171f34,#101727);
-  display:grid;
-  place-items:center;
-  color:#737f99;
-  font:700 12px "Space Grotesk";
-  position:relative;
-  transition:all .25s ease;
-  box-shadow:0 3px 0 #080c16;
+.tqFingerGuideKeyRow {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 5px;
 }
 
-.tutorialKey.activeKey{
-  color:#fff;
-  border-color:#987fff;
-  background:linear-gradient(145deg,#392d72,#211a48);
-  box-shadow:
-    0 0 25px #8065ff55,
-    0 4px 0 #100b29;
-  transform:translateY(-3px);
+.tqFingerGuideKey {
+  display: grid;
+  width: clamp(29px, 5vw, 44px);
+  height: clamp(30px, 5vw, 42px);
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 7px;
+  background: linear-gradient(145deg, #242b35, #171c24);
+  color: #6f7b8a;
+  font-size: 11px;
+  font-weight: 850;
+  box-shadow: 0 3px 0 #0d1116, 0 6px 9px rgba(0,0,0,.18);
+  transition: .2s ease;
 }
 
-.tutorialKey.activeKey i{
-  position:absolute;
-  bottom:-4px;
-  font-size:7px;
-  color:#b7a5ff;
-  animation:keyDot 1s infinite;
+.tqFingerGuideKeyRow.row-1 {
+  transform: translateX(-5%);
 }
 
-@keyframes keyDot{
-  50%{transform:translateY(4px);opacity:.4}
+.tqFingerGuideKeyRow.row-2 {
+  transform: translateX(-2%);
 }
 
-.tutorialKey.completedKey{
-  color:#67dfbd;
-  border-color:#31594f;
-  background:#142822;
+.tqFingerGuideKey.target {
+  color: #eafff9;
+  border-color: rgba(101,230,199,.72);
+  background: linear-gradient(145deg, #2c8978, #1f6257);
+  box-shadow: 0 0 0 1px rgba(101,230,199,.12), 0 0 24px rgba(101,230,199,.28), 0 4px 0 #123f38;
+  animation: tqFingerGuidePulse 1.15s ease-in-out infinite;
 }
 
-.spaceKey{
-  width:55%;
-  margin:6px auto 0;
-  height:32px;
-  border:1px solid #28334c;
-  border-radius:7px;
-  display:grid;
-  place-items:center;
-  color:#56627b;
-  font-size:8px;
-  font-weight:800;
-  letter-spacing:.12em;
+.tqFingerGuideKey.target.success {
+  background: linear-gradient(145deg, #4de0ba, #228f77);
+  color: #06251e;
+  animation: none;
 }
 
-/* ---------- HINT ---------- */
+.tqFingerGuideKey.target.shake {
+  border-color: rgba(255,107,112,.85);
+  background: linear-gradient(145deg, #9a4148, #642b31);
+  color: #fff3f3;
+  animation: tqFingerGuideShake .28s ease;
+}
 
-.keyboardHint{
-  display:flex;
-  gap:10px;
-  margin-top:14px;
-  padding:11px 13px;
-  border-radius:11px;
-  border:1px solid var(--line);
-  background:#ffffff02;
+.tqFingerGuideKey.done {
+  color: #65e6c7;
+  border-color: rgba(101,230,199,.14);
 }
 
-.keyboardHint > span{
-  font-size:16px;
+.tqFingerGuideSpacebar {
+  width: 58%;
+  height: 30px;
+  margin: 11px auto 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 7px;
+  background: #181e26;
+  color: #5d6978;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .14em;
 }
 
-.keyboardHint b{
-  display:block;
-  font-size:10px;
+.tqFingerGuideTips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid rgba(255,255,255,.065);
 }
 
-.keyboardHint small{
-  display:block;
-  color:#69758e;
-  font-size:9px;
-  margin-top:3px;
+.tqFingerGuideTips > div {
+  padding: 16px 20px;
+  border-right: 1px solid rgba(255,255,255,.055);
 }
 
-/* ---------- FOOTER ---------- */
+.tqFingerGuideTips > div:last-child {
+  border-right: 0;
+}
 
-.lessonFooter{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-top:14px;
-  padding:15px 18px;
-  border:1px solid var(--line);
-  border-radius:13px;
-  background:var(--panel);
+.tqFingerGuideTips span {
+  display: block;
+  margin-bottom: 7px;
+  color: #65e6c7;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .1em;
 }
 
-.lessonFooter b{
-  display:block;
-  font:700 12px "Space Grotesk";
+.tqFingerGuideTips b {
+  display: block;
+  color: #dce4ed;
+  font-size: 12px;
 }
 
-.lessonFooter span{
-  color:#6e7992;
-  font-size:9px;
+.tqFingerGuideTips small {
+  display: block;
+  margin-top: 4px;
+  color: #697586;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
-.homeRowHint{
-  color:#887aff;
-  font-size:8px;
-  letter-spacing:.13em;
-  font-weight:900;
+.tqFingerGuideComplete {
+  padding: 60px 28px;
+  text-align: center;
+  border: 1px solid rgba(101,230,199,.17);
+  border-radius: 22px;
+  background: radial-gradient(circle at 50% 0%, rgba(101,230,199,.1), transparent 42%), rgba(18,23,30,.94);
 }
 
-/* ---------- COMPLETE ---------- */
+.tqFingerGuideCompleteIcon {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 22px;
+  border: 1px solid rgba(101,230,199,.35);
+  border-radius: 50%;
+  color: #071f19;
+  background: #65e6c7;
+  font-size: 34px;
+  font-weight: 900;
+  box-shadow: 0 0 45px rgba(101,230,199,.22);
+}
 
-.lessonComplete{
-  min-height:650px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  max-width:650px;
-  margin:auto;
+.tqFingerGuideComplete h2 {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: -.035em;
 }
 
-.completeIcon{
-  width:90px;
-  height:90px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  background:#153c35;
-  border:1px solid #4adab855;
-  color:#6ce8c7;
-  font-size:42px;
-  box-shadow:0 0 60px #40d9b52b;
-  margin-bottom:25px;
+.tqFingerGuideComplete > p:not(.tqFingerGuideEyebrow) {
+  margin: 10px auto 0;
+  max-width: 510px;
+  color: #7f8b9d;
+  line-height: 1.6;
 }
 
-.lessonComplete h1{
-  font:700 clamp(38px,5vw,60px) "Space Grotesk";
-  line-height:1;
-  letter-spacing:-.04em;
-  margin:0 0 15px;
+.tqFingerGuideCompleteKeys {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 25px 0;
+  flex-wrap: wrap;
 }
 
-.lessonComplete h1 span{
-  color:#9c83ff;
+.tqFingerGuideCompleteKeys span {
+  min-width: 39px;
+  padding: 10px 12px;
+  border: 1px solid rgba(101,230,199,.2);
+  border-radius: 8px;
+  background: rgba(101,230,199,.07);
+  color: #65e6c7;
+  font-weight: 850;
 }
 
-.lessonComplete .muted{
-  max-width:500px;
+.tqFingerGuideCompleteActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 
-.masteredKeys{
-  display:flex;
-  gap:8px;
-  margin:25px 0;
-  flex-wrap:wrap;
-  justify-content:center;
+.tqFingerGuidePrimary {
+  border-color: rgba(101,230,199,.35);
+  background: #65e6c7;
+  color: #06251e;
 }
 
-.masteredKeys span{
-  width:42px;
-  height:42px;
-  display:grid;
-  place-items:center;
-  border-radius:10px;
-  background:#172c27;
-  border:1px solid #37695b;
-  color:#70e5c4;
-  font:700 13px "Space Grotesk";
+.tqFingerGuideSecondary {
+  background: rgba(255,255,255,.035);
+  color: #dce4ed;
 }
 
-.lessonContinue{
-  min-width:230px;
-  margin-bottom:17px;
+@keyframes tqFingerGuidePulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
-/* ---------- MOBILE ---------- */
+@keyframes tqFingerGuideShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
 
-@media(max-width:900px){
-  .fingerLessonGrid{
-    grid-template-columns:1fr;
+@media (max-width: 900px) {
+  .tqFingerGuideVisualGrid {
+    grid-template-columns: 1fr;
   }
 
-  .handStage,
-  .keyboardStage{
-    min-height:auto;
-  }
-
-  .handVisual{
-    height:280px;
+  .tqFingerGuideHandPanel,
+  .tqFingerGuideKeyboardPanel {
+    min-height: 300px;
   }
 }
 
-@media(max-width:650px){
-  .lessonHeader{
-    align-items:flex-start;
+@media (max-width: 640px) {
+  .tqFingerGuide {
+    padding-bottom: 20px;
   }
 
-  .lessonHeader h1{
-    font-size:38px;
+  .tqFingerGuideHead {
+    flex-direction: column;
   }
 
-  .lessonProgressBox{
-    min-width:72px;
-    width:72px;
-    height:72px;
+  .tqFingerGuideBack {
+    align-self: flex-start;
   }
 
-  .lessonProgressBox strong{
-    font-size:25px;
+  .tqFingerGuideLessonTop {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .fingerProgress{
-    gap:3px;
+  .tqFingerGuideInstruction {
+    width: 100%;
+    min-width: 0;
   }
 
-  .tutorialKeyboard{
-    padding:9px;
+  .tqFingerGuideVisualGrid {
+    padding: 10px;
   }
 
-  .tutorialKeyRow{
-    gap:3px;
+  .tqFingerGuideKeyboard {
+    padding: 22px 8px 14px;
+    overflow-x: auto;
   }
 
-  .tutorialKey{
-    height:34px;
-    border-radius:6px;
-    font-size:9px;
+  .tqFingerGuideKey {
+    width: 29px;
+    height: 32px;
+    font-size: 9px;
   }
 
-  .handVisual{
-    height:250px;
-    transform:scale(.85);
-    transform-origin:center;
+  .tqFingerGuideTips {
+    grid-template-columns: 1fr;
   }
 
-  .fingerInstruction{
-    align-items:flex-start;
+  .tqFingerGuideTips > div {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,.055);
   }
 
-  .targetKey{
-    width:65px;
-    height:65px;
+  .tqFingerGuideTips > div:last-child {
+    border-bottom: 0;
   }
 
-  .lessonFooter{
-    padding:12px;
-  }
-}
-
-/* ---------- KEYBOARD ROW ALIGNMENT ---------- */
-
-.tutorialKeyRow.row-1{
-  padding-left:18px;
-}
-
-.tutorialKeyRow.row-2{
-  padding-left:36px;
-}
-
-/* Keep row alignment responsive */
-@media(max-width:650px){
-  .tutorialKeyRow.row-1{
-    padding-left:10px;
-  }
-
-  .tutorialKeyRow.row-2{
-    padding-left:20px;
+  .tqFingerGuideCompleteActions {
+    flex-direction: column;
   }
 }
