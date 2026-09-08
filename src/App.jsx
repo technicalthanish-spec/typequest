@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { dbGet, dbSet, dbClear } from "./lib/db";
 import { LEVELS } from "./data/levels";
 import { supabase, isCloudConfigured } from "./lib/supabase";
@@ -716,4 +717,4 @@ function Placement({ title, keys }) { return <div className="placementCol"><h3>{
 function Empty({ text }) { return <div className="empty">{text}</div>; }
 function Backup({ data, setData, close }) { const fileRef = useRef(); const download = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `typequest-backup-${todayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }; const importFile = async e => { const f = e.target.files?.[0]; if (!f) return; try { if (f.size > 2 * 1024 * 1024) throw Error("Backup is too large"); const d = JSON.parse(await f.text()); if (!d || typeof d !== "object" || Array.isArray(d) || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) || !Array.isArray(d.attempts) || d.attempts.length > 500) throw Error("Invalid backup"); const clean = normalizeData(d); setData(clean); close(); } catch { alert("That backup file is not a valid TypeQuest backup."); } finally { e.target.value = ""; } }; return <div className="modalWrap"><div className="modal card"><button className="close" onClick={close}>×</button><p className="eyebrow">LOCAL BACKUP</p><h2>Keep your progress safe</h2><p className="muted">Export a JSON copy. It never goes to the cloud.</p><button className="primary full" onClick={download}>Download backup</button><button className="ghost full" onClick={() => fileRef.current.click()}>Import backup</button><input ref={fileRef} hidden type="file" accept=".json" onChange={importFile}/></div></div>; }
 
-export default function App() { return <AppErrorBoundary><TypeQuestApp /></AppErrorBoundary>; }
+export default function App() { return <><AppErrorBoundary><TypeQuestApp /></AppErrorBoundary><Analytics /></>; }
