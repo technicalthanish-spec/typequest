@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "@vercel/speed-insights": "^2.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@supabase/supabase-js": "^2.57.4"
-  },
-  "devDependencies": {}
+    "vite": "^6.1.0"
+  }
 }
