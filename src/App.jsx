@@ -711,8 +711,276 @@ function Stats({ data, onDrill }) { const weak = computeWeakKeys(data.keyStats);
 
 function WeakDrill({ data, onBack, onDone }) { const textRef = useRef(buildDrillText(data.keyStats)); const weakRef = useRef(computeWeakKeys(data.keyStats)); const text = textRef.current; const weak = weakRef.current; return <div><StageIndicator current="Practice"/><div className="pageTitle"><p className="eyebrow">PERSONALIZED TRAINING</p><h1>Practice your weak keys.</h1><p className="muted">This drill is generated from your saved mistake history. The target is frozen for this session so it cannot reset while you type.</p></div><div className="card adaptiveBanner"><div><b>Target keys</b><div className="weakList">{weak.map(k => <span className="weakChip" key={k}>{k.toUpperCase()}</span>)}</div></div></div><TypingStage key="weak-drill" level={LEVELS[0]} stage="practice" text={text} onDone={(delta) => { onDone(delta); onBack(); }} onSkip={(delta) => { onDone(delta); onBack(); }}/><button className="textbtn" onClick={onBack}>← Back to analytics</button></div>; }
 
-function FingerGuide({ onStart }) { const left = [["A","LITTLE"],["S","RING"],["D","MIDDLE"],["F","INDEX"]], right = [["J","INDEX"],["K","MIDDLE"],["L","RING"],[";","LITTLE"]]; return <div className="fingerGuide"><div className="pageTitle"><p className="eyebrow">FINGER GUIDE • QUICK REFERENCE</p><h1>Start with the<br/><span>right hand position.</span></h1><p className="muted">Use this quick reference anytime to check finger placement before practice.</p></div><div className="card handCard"><div className="keyboardMini"><div className="keyRow">{["Q","W","E","R","T","Y","U","I","O","P"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow homeKeys">{["A","S","D","F","G","H","J","K","L",";"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow">{["Z","X","C","V","B","N","M",",",".","/"].map(k => <span key={k}>{k}</span>)}</div></div><div className="placementGrid"><Placement title="Left hand" keys={left}/><Placement title="Right hand" keys={right}/></div><div className="guideRules"><div><b>F & J are anchors</b><small>Keep your index fingers on the raised bumps.</small></div><div><b>Thumbs → Space</b><small>Use either thumb comfortably.</small></div><div><b>Eyes on the text</b><small>Try not to look down at the keyboard.</small></div></div></div><div className="challengePreview card"><div><p className="eyebrow">QUICK REFERENCE</p><h2>Ready to practice?</h2><p className="muted">Return to your dashboard and start a level whenever you are ready.</p></div><button className="primary" onClick={onStart}>Back to dashboard →</button></div></div>; }
-function Placement({ title, keys }) { return <div className="placementCol"><h3>{title}</h3>{keys.map(([key,finger]) => <div className="fingerRow" key={key}><b>{key}</b><span>{finger} finger</span></div>)}</div>; }
+function FingerGuide({ onStart }) {
+  const steps = [
+    { key: "a", finger: "LEFT PINKY", label: "Left little finger", hand: "left", fingerClass: "pinky" },
+    { key: "s", finger: "LEFT RING", label: "Left ring finger", hand: "left", fingerClass: "ring" },
+    { key: "d", finger: "LEFT MIDDLE", label: "Left middle finger", hand: "left", fingerClass: "middle" },
+    { key: "f", finger: "LEFT INDEX", label: "Left index finger", hand: "left", fingerClass: "index" },
+    { key: "j", finger: "RIGHT INDEX", label: "Right index finger", hand: "right", fingerClass: "index" },
+    { key: "k", finger: "RIGHT MIDDLE", label: "Right middle finger", hand: "right", fingerClass: "middle" },
+    { key: "l", finger: "RIGHT RING", label: "Right ring finger", hand: "right", fingerClass: "ring" },
+    { key: ";", finger: "RIGHT PINKY", label: "Right little finger", hand: "right", fingerClass: "pinky" }
+  ];
+
+  const [step, setStep] = useState(0);
+  const [status, setStatus] = useState("waiting");
+  const [wrongKey, setWrongKey] = useState("");
+  const timerRef = useRef(null);
+
+  const current = steps[step];
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (status !== "waiting") return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key.length !== 1) return;
+
+      const pressed = e.key.toLowerCase();
+      const expected = current.key.toLowerCase();
+
+      if (pressed === expected) {
+        setStatus("correct");
+        setWrongKey("");
+
+        timerRef.current = setTimeout(() => {
+          if (step < steps.length - 1) {
+            setStep((s) => s + 1);
+            setStatus("waiting");
+          } else {
+            setStatus("complete");
+          }
+        }, 650);
+      } else {
+        setStatus("wrong");
+        setWrongKey(e.key === " " ? "SPACE" : e.key.toUpperCase());
+
+        timerRef.current = setTimeout(() => {
+          setStatus("waiting");
+          setWrongKey("");
+        }, 700);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [current, step, status]);
+
+  const keyboardRows = [
+    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
+    ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
+  ];
+
+  if (status === "complete") {
+    return (
+      <div className="fingerLesson">
+        <div className="lessonComplete">
+          <div className="completeIcon">✓</div>
+          <p className="eyebrow">FINGER PLACEMENT MASTERED</p>
+          <h1>
+            Your fingers know
+            <br />
+            <span>the home row.</span>
+          </h1>
+          <p className="muted">
+            Excellent work. You learned the correct starting position for all eight fingers.
+          </p>
+
+          <div className="masteredKeys">
+            {steps.map((item) => (
+              <span key={item.key}>
+                {item.key === ";" ? ";" : item.key.toUpperCase()}
+              </span>
+            ))}
+          </div>
+
+          <button className="primary lessonContinue" onClick={onStart}>
+            Start your first lesson →
+          </button>
+
+          <button
+            className="textbtn"
+            onClick={() => {
+              if (timerRef.current) clearTimeout(timerRef.current);
+              setStep(0);
+              setStatus("waiting");
+              setWrongKey("");
+            }}
+          >
+            Practice again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fingerLesson">
+      <div className="lessonHeader">
+        <div>
+          <p className="eyebrow">INTERACTIVE FINGER TUTORIAL</p>
+          <h1>
+            Learn where every finger
+            <br />
+            <span>belongs.</span>
+          </h1>
+          <p className="muted">
+            Follow the animation and press the highlighted key on your physical keyboard.
+          </p>
+        </div>
+
+        <div className="lessonProgressBox">
+          <span>STEP</span>
+          <strong>{step + 1}</strong>
+          <small>/ {steps.length}</small>
+        </div>
+      </div>
+
+      <div className="fingerProgress">
+        {steps.map((item, i) => (
+          <div
+            key={item.key}
+            className={
+              i < step
+                ? "progressDot done"
+                : i === step
+                ? "progressDot active"
+                : "progressDot"
+            }
+          />
+        ))}
+      </div>
+
+      <div className="fingerLessonGrid">
+        <div className="card handStage">
+          <div className="stageLabel">
+            <span>01</span>
+            FINGER POSITION
+          </div>
+
+          <div className={`handVisual ${current.hand}`}>
+            <div className="handGlow" />
+
+            <div className="fakeHand">
+              <div className={`finger finger-pinky ${current.fingerClass === "pinky" ? "activeFinger" : ""}`} />
+              <div className={`finger finger-ring ${current.fingerClass === "ring" ? "activeFinger" : ""}`} />
+              <div className={`finger finger-middle ${current.fingerClass === "middle" ? "activeFinger" : ""}`} />
+              <div className={`finger finger-index ${current.fingerClass === "index" ? "activeFinger" : ""}`} />
+              <div className="palm" />
+              <div className="thumb" />
+            </div>
+
+            <div className="fingerPointer">
+              <span>↓</span>
+              <small>{current.finger}</small>
+            </div>
+          </div>
+
+          <div className="fingerInstruction">
+            <div className={`instructionIcon ${status}`}>
+              {status === "correct" ? "✓" : status === "wrong" ? "!" : "⌨"}
+            </div>
+
+            <div>
+              <small>
+                {status === "correct" ? "PERFECT" : status === "wrong" ? "TRY AGAIN" : "YOUR TURN"}
+              </small>
+
+              <h2>
+                {status === "correct"
+                  ? `${current.label} placed correctly`
+                  : status === "wrong"
+                  ? `You pressed ${wrongKey}`
+                  : `Place your ${current.label.toLowerCase()}`}
+              </h2>
+
+              <p>
+                {status === "correct"
+                  ? "Moving to the next finger..."
+                  : status === "wrong"
+                  ? `Use your ${current.label.toLowerCase()} and press the highlighted key.`
+                  : "Look at the highlighted key and press it on your keyboard."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card keyboardStage">
+          <div className="stageLabel">
+            <span>02</span>
+            FIND THE KEY
+          </div>
+
+          <div className="targetKeyCard">
+            <small>PRESS THIS KEY</small>
+            <div className={`targetKey ${status}`}>
+              {current.key === ";" ? ";" : current.key.toUpperCase()}
+            </div>
+            <strong>{current.label}</strong>
+            <span>
+              {status === "wrong"
+                ? "Wrong key — try again"
+                : status === "correct"
+                ? "Correct!"
+                : "Waiting for your key press..."}
+            </span>
+          </div>
+
+          <div className="tutorialKeyboard">
+            {keyboardRows.map((row, rowIndex) => (
+              <div className={`tutorialKeyRow row-${rowIndex}`} key={rowIndex}>
+                {row.map((key) => {
+                  const active = key.toLowerCase() === current.key.toLowerCase();
+                  const completed = steps
+                    .slice(0, step)
+                    .some((s) => s.key.toLowerCase() === key.toLowerCase());
+
+                  return (
+                    <div
+                      key={key}
+                      className={[
+                        "tutorialKey",
+                        active ? "activeKey" : "",
+                        completed ? "completedKey" : ""
+                      ].join(" ")}
+                    >
+                      {key}
+                      {active && <i>●</i>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            <div className="spaceKey">SPACE</div>
+          </div>
+
+          <div className="keyboardHint">
+            <span>💡</span>
+            <div>
+              <b>Don't look at your keyboard</b>
+              <small>Try to feel the key instead of searching for it.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="lessonFooter">
+        <div>
+          <b>{current.finger}</b>
+          <span>Finger {step + 1} of {steps.length}</span>
+        </div>
+        <div className="homeRowHint">HOME ROW</div>
+      </div>
+    </div>
+  );
+}
+
 function Empty({ text }) { return <div className="empty">{text}</div>; }
 function Backup({ data, setData, close }) { const fileRef = useRef(); const download = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `typequest-backup-${todayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }; const importFile = async e => { const f = e.target.files?.[0]; if (!f) return; try { if (f.size > 2 * 1024 * 1024) throw Error("Backup is too large"); const d = JSON.parse(await f.text()); if (!d || typeof d !== "object" || Array.isArray(d) || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) || !Array.isArray(d.attempts) || d.attempts.length > 500) throw Error("Invalid backup"); const clean = normalizeData(d); setData(clean); close(); } catch { alert("That backup file is not a valid TypeQuest backup."); } finally { e.target.value = ""; } }; return <div className="modalWrap"><div className="modal card"><button className="close" onClick={close}>×</button><p className="eyebrow">LOCAL BACKUP</p><h2>Keep your progress safe</h2><p className="muted">Export a JSON copy. It never goes to the cloud.</p><button className="primary full" onClick={download}>Download backup</button><button className="ghost full" onClick={() => fileRef.current.click()}>Import backup</button><input ref={fileRef} hidden type="file" accept=".json" onChange={importFile}/></div></div>; }
 
