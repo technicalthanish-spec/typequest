@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import "./styles.css";
 import { dbGet, dbSet, dbClear } from "./lib/db";
 import { LEVELS } from "./data/levels";
 import { supabase, isCloudConfigured } from "./lib/supabase";
@@ -714,14 +713,20 @@ function WeakDrill({ data, onBack, onDone }) { const textRef = useRef(buildDrill
 
 function FingerGuide({ onStart }) {
   const steps = [
-    { key: "a", finger: "LEFT PINKY", label: "Left little finger", hand: "left", fingerClass: "pinky" },
-    { key: "s", finger: "LEFT RING", label: "Left ring finger", hand: "left", fingerClass: "ring" },
-    { key: "d", finger: "LEFT MIDDLE", label: "Left middle finger", hand: "left", fingerClass: "middle" },
-    { key: "f", finger: "LEFT INDEX", label: "Left index finger", hand: "left", fingerClass: "index" },
-    { key: "j", finger: "RIGHT INDEX", label: "Right index finger", hand: "right", fingerClass: "index" },
-    { key: "k", finger: "RIGHT MIDDLE", label: "Right middle finger", hand: "right", fingerClass: "middle" },
-    { key: "l", finger: "RIGHT RING", label: "Right ring finger", hand: "right", fingerClass: "ring" },
-    { key: ";", finger: "RIGHT PINKY", label: "Right little finger", hand: "right", fingerClass: "pinky" }
+    { key: "A", hand: "LEFT", finger: "LITTLE", fingerClass: "pinky", side: "left", tip: "Left little finger" },
+    { key: "S", hand: "LEFT", finger: "RING", fingerClass: "ring", side: "left", tip: "Left ring finger" },
+    { key: "D", hand: "LEFT", finger: "MIDDLE", fingerClass: "middle", side: "left", tip: "Left middle finger" },
+    { key: "F", hand: "LEFT", finger: "INDEX", fingerClass: "index", side: "left", tip: "Left index finger" },
+    { key: "J", hand: "RIGHT", finger: "INDEX", fingerClass: "index", side: "right", tip: "Right index finger" },
+    { key: "K", hand: "RIGHT", finger: "MIDDLE", fingerClass: "middle", side: "right", tip: "Right middle finger" },
+    { key: "L", hand: "RIGHT", finger: "RING", fingerClass: "ring", side: "right", tip: "Right ring finger" },
+    { key: ";", hand: "RIGHT", finger: "LITTLE", fingerClass: "pinky", side: "right", tip: "Right little finger" }
+  ];
+
+  const keyboardRows = [
+    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
+    ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
   ];
 
   const [step, setStep] = useState(0);
@@ -731,10 +736,11 @@ function FingerGuide({ onStart }) {
   const lockedRef = useRef(false);
 
   const current = steps[step];
+  const complete = status === "complete";
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (lockedRef.current || status !== "waiting") return;
+    const handleKeyDown = e => {
+      if (lockedRef.current || status !== "waiting" || complete) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA" || e.target?.isContentEditable) return;
       if (e.key.length !== 1) return;
@@ -750,7 +756,7 @@ function FingerGuide({ onStart }) {
 
         timerRef.current = setTimeout(() => {
           if (step < steps.length - 1) {
-            setStep((s) => s + 1);
+            setStep(s => s + 1);
             setStatus("waiting");
             lockedRef.current = false;
           } else {
@@ -759,6 +765,7 @@ function FingerGuide({ onStart }) {
           }
         }, 650);
       } else {
+        e.preventDefault();
         setStatus("wrong");
         setWrongKey(e.key === " " ? "SPACE" : e.key.toUpperCase());
 
@@ -772,19 +779,13 @@ function FingerGuide({ onStart }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [current, step, status]);
+  }, [current, step, status, complete]);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
-
-  const keyboardRows = [
-    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-    ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
-    ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
-  ];
 
   const resetGuide = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -795,200 +796,133 @@ function FingerGuide({ onStart }) {
     setWrongKey("");
   };
 
-  if (status === "complete") {
-    return (
-      <div className="fingerLesson">
-        <div className="lessonComplete">
-          <div className="completeIcon">✓</div>
-          <p className="eyebrow">FINGER PLACEMENT MASTERED</p>
-          <h1>
-            Your fingers know
-            <br />
-            <span>the home row.</span>
-          </h1>
-          <p className="muted">
-            Excellent work. You learned the correct starting position for all eight fingers.
-          </p>
-
-          <div className="masteredKeys">
-            {steps.map((item) => (
-              <span key={item.key}>
-                {item.key === ";" ? ";" : item.key.toUpperCase()}
-              </span>
-            ))}
-          </div>
-
-          <button className="primary lessonContinue" onClick={onStart}>
-            Start your first lesson →
-          </button>
-
-          <button className="textbtn" onClick={resetGuide}>
-            Practice again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fingerLesson">
-      <div className="lessonHeader">
+    <div className="tqFingerGuide">
+      <div className="tqFingerGuideHead">
         <div>
-          <p className="eyebrow">INTERACTIVE FINGER TUTORIAL</p>
-          <h1>
-            Learn where every finger
-            <br />
-            <span>belongs.</span>
-          </h1>
-          <p className="muted">
-            Follow the animation and press the highlighted key on your physical keyboard.
+          <p className="tqFingerGuideEyebrow">FINGER GUIDE • INTERACTIVE LESSON</p>
+          <h1>Train your fingers.<br /><span>Build the right habit.</span></h1>
+          <p className="tqFingerGuideMuted">
+            Follow the highlighted key and press it on your physical keyboard.
+            Correct presses advance automatically.
           </p>
         </div>
+        <button className="tqFingerGuideBack" onClick={onStart}>← Dashboard</button>
+      </div>
 
-        <div className="lessonProgressBox">
-          <span>STEP</span>
-          <strong>{step + 1}</strong>
-          <small>/ {steps.length}</small>
+      <div className="tqFingerGuideProgress" aria-label={`Finger lesson progress: ${step + 1} of ${steps.length}`}>
+        <div className="tqFingerGuideProgressTop">
+          <span>HOME ROW TRAINING</span>
+          <b>{complete ? "COMPLETE" : `${step + 1} / ${steps.length}`}</b>
+        </div>
+        <div className="tqFingerGuideProgressTrack">
+          <i style={{ width: `${complete ? 100 : (step / steps.length) * 100}%` }} />
         </div>
       </div>
 
-      <div className="fingerProgress" aria-label={`Finger tutorial step ${step + 1} of ${steps.length}`}>
-        {steps.map((item, i) => (
-          <div
-            key={item.key}
-            className={
-              i < step
-                ? "progressDot done"
-                : i === step
-                ? "progressDot active"
-                : "progressDot"
-            }
-          />
-        ))}
-      </div>
-
-      <div className="fingerLessonGrid">
-        <div className="card handStage">
-          <div className="stageLabel">
-            <span>01</span>
-            FINGER POSITION
+      {complete ? (
+        <div className="tqFingerGuideComplete">
+          <div className="tqFingerGuideCompleteIcon">✓</div>
+          <p className="tqFingerGuideEyebrow">LESSON COMPLETE</p>
+          <h2>Home row unlocked.</h2>
+          <p>You just trained all 8 home-row keys with the correct fingers.</p>
+          <div className="tqFingerGuideCompleteKeys">
+            {steps.map(item => <span key={item.key}>{item.key}</span>)}
           </div>
-
-          <div className={`handVisual ${current.hand}`}>
-            <div className="handGlow" />
-
-            <div className="fakeHand">
-              <div className={`finger finger-pinky ${current.fingerClass === "pinky" ? "activeFinger" : ""}`} />
-              <div className={`finger finger-ring ${current.fingerClass === "ring" ? "activeFinger" : ""}`} />
-              <div className={`finger finger-middle ${current.fingerClass === "middle" ? "activeFinger" : ""}`} />
-              <div className={`finger finger-index ${current.fingerClass === "index" ? "activeFinger" : ""}`} />
-              <div className="palm" />
-              <div className="thumb" />
-            </div>
-
-            <div className="fingerPointer">
-              <span>↓</span>
-              <small>{current.finger}</small>
-            </div>
-          </div>
-
-          <div className="fingerInstruction">
-            <div className={`instructionIcon ${status}`}>
-              {status === "correct" ? "✓" : status === "wrong" ? "!" : "⌨"}
-            </div>
-
-            <div>
-              <small>
-                {status === "correct" ? "PERFECT" : status === "wrong" ? "TRY AGAIN" : "YOUR TURN"}
-              </small>
-
-              <h2>
-                {status === "correct"
-                  ? `${current.label} placed correctly`
-                  : status === "wrong"
-                  ? `You pressed ${wrongKey}`
-                  : `Place your ${current.label.toLowerCase()}`}
-              </h2>
-
-              <p>
-                {status === "correct"
-                  ? "Moving to the next finger..."
-                  : status === "wrong"
-                  ? `Use your ${current.label.toLowerCase()} and press the highlighted key.`
-                  : "Look at the highlighted key and press it on your keyboard."}
-              </p>
-            </div>
+          <div className="tqFingerGuideCompleteActions">
+            <button className="tqFingerGuideSecondary" onClick={resetGuide}>Practice again</button>
+            <button className="tqFingerGuidePrimary" onClick={onStart}>Back to dashboard →</button>
           </div>
         </div>
-
-        <div className="card keyboardStage">
-          <div className="stageLabel">
-            <span>02</span>
-            FIND THE KEY
-          </div>
-
-          <div className="targetKeyCard">
-            <small>PRESS THIS KEY</small>
-            <div className={`targetKey ${status}`}>
-              {current.key === ";" ? ";" : current.key.toUpperCase()}
-            </div>
-            <strong>{current.label}</strong>
-            <span>
-              {status === "wrong"
-                ? "Wrong key — try again"
-                : status === "correct"
-                ? "Correct!"
-                : "Waiting for your key press..."}
-            </span>
-          </div>
-
-          <div className="tutorialKeyboard">
-            {keyboardRows.map((row, rowIndex) => (
-              <div className={`tutorialKeyRow row-${rowIndex}`} key={rowIndex}>
-                {row.map((key) => {
-                  const active = key.toLowerCase() === current.key.toLowerCase();
-                  const completed = steps
-                    .slice(0, step)
-                    .some((s) => s.key.toLowerCase() === key.toLowerCase());
-
-                  return (
-                    <div
-                      key={key}
-                      className={[
-                        "tutorialKey",
-                        active ? "activeKey" : "",
-                        completed ? "completedKey" : ""
-                      ].join(" ")}
-                      aria-label={active ? `Target key ${key}` : key}
-                    >
-                      {key}
-                      {active && <i>●</i>}
-                    </div>
-                  );
-                })}
+      ) : (
+        <>
+          <div className={`tqFingerGuideLesson ${status}`}>
+            <div className="tqFingerGuideLessonTop">
+              <div>
+                <p className="tqFingerGuideEyebrow">YOUR NEXT KEY</p>
+                <div className="tqFingerGuideTargetLetter">{current.key}</div>
               </div>
-            ))}
 
-            <div className="spaceKey">SPACE</div>
-          </div>
+              <div className="tqFingerGuideInstruction">
+                <div className={`tqFingerGuideStatusDot ${status}`} />
+                <div>
+                  <b>
+                    {status === "correct"
+                      ? "Nice! Correct finger."
+                      : status === "wrong"
+                        ? `Not quite — you pressed ${wrongKey}.`
+                        : `Press ${current.key} with your ${current.finger.toLowerCase()} finger.`}
+                  </b>
+                  <small>
+                    {status === "wrong"
+                      ? `Try ${current.key} again.`
+                      : status === "correct"
+                        ? "Moving to the next key…"
+                        : `${current.hand} HAND • ${current.finger} FINGER`}
+                  </small>
+                </div>
+              </div>
+            </div>
 
-          <div className="keyboardHint">
-            <span>💡</span>
-            <div>
-              <b>Don't look at your keyboard</b>
-              <small>Try to feel the key instead of searching for it.</small>
+            <div className="tqFingerGuideVisualGrid">
+              <div className="tqFingerGuideHandPanel">
+                <div className="tqFingerGuidePanelLabel">
+                  <span>FINGER POSITION</span>
+                  <b>{current.hand} HAND</b>
+                </div>
+
+                <div className={`tqFingerGuideHand ${current.side}`}>
+                  <div className="tqFingerGuidePalm">
+                    <div className={`tqFingerGuideFinger tqFingerGuideFingerPinky ${current.fingerClass === "pinky" ? "active" : ""}`} />
+                    <div className={`tqFingerGuideFinger tqFingerGuideFingerRing ${current.fingerClass === "ring" ? "active" : ""}`} />
+                    <div className={`tqFingerGuideFinger tqFingerGuideFingerMiddle ${current.fingerClass === "middle" ? "active" : ""}`} />
+                    <div className={`tqFingerGuideFinger tqFingerGuideFingerIndex ${current.fingerClass === "index" ? "active" : ""}`} />
+                    <div className="tqFingerGuideThumb" />
+                  </div>
+                  <div className="tqFingerGuideHandCaption">
+                    <strong>{current.tip}</strong>
+                    <span>Place it over <b>{current.key}</b></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tqFingerGuideKeyboardPanel">
+                <div className="tqFingerGuidePanelLabel">
+                  <span>PHYSICAL KEYBOARD</span>
+                  <b>FIND THE GLOWING KEY</b>
+                </div>
+
+                <div className="tqFingerGuideKeyboard">
+                  {keyboardRows.map((row, rowIndex) => (
+                    <div className={`tqFingerGuideKeyRow row-${rowIndex}`} key={rowIndex}>
+                      {row.map(key => {
+                        const target = key === current.key;
+                        const done = steps.slice(0, step).some(item => item.key === key);
+                        return (
+                          <span
+                            key={key}
+                            className={`tqFingerGuideKey ${target ? "target" : ""} ${done ? "done" : ""} ${status === "wrong" && target ? "shake" : ""} ${status === "correct" && target ? "success" : ""}`}
+                            aria-label={`${key} key${target ? " — target" : ""}`}
+                          >
+                            {key}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <div className="tqFingerGuideSpacebar">SPACE</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="tqFingerGuideTips">
+              <div><span>01</span><b>Stay on home row</b><small>Keep your fingers relaxed around A S D F and J K L ;.</small></div>
+              <div><span>02</span><b>Use the correct finger</b><small>Accuracy matters more than speed during this lesson.</small></div>
+              <div><span>03</span><b>Eyes up</b><small>Look at the screen instead of searching for the key.</small></div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="lessonFooter">
-        <div>
-          <b>{current.finger}</b>
-          <span>Finger {step + 1} of {steps.length}</span>
-        </div>
-        <div className="homeRowHint">HOME ROW</div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
