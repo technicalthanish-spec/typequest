@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import "./styles.css";
 import { dbGet, dbSet, dbClear } from "./lib/db";
 import { LEVELS } from "./data/levels";
 import { supabase, isCloudConfigured } from "./lib/supabase";
