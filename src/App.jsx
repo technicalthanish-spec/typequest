@@ -727,19 +727,23 @@ function FingerGuide({ onStart }) {
   const [status, setStatus] = useState("waiting");
   const [wrongKey, setWrongKey] = useState("");
   const timerRef = useRef(null);
+  const lockedRef = useRef(false);
 
   const current = steps[step];
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (status !== "waiting") return;
+      if (lockedRef.current || status !== "waiting") return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA" || e.target?.isContentEditable) return;
       if (e.key.length !== 1) return;
 
       const pressed = e.key.toLowerCase();
       const expected = current.key.toLowerCase();
+      lockedRef.current = true;
 
       if (pressed === expected) {
+        e.preventDefault();
         setStatus("correct");
         setWrongKey("");
 
@@ -747,8 +751,10 @@ function FingerGuide({ onStart }) {
           if (step < steps.length - 1) {
             setStep((s) => s + 1);
             setStatus("waiting");
+            lockedRef.current = false;
           } else {
             setStatus("complete");
+            lockedRef.current = false;
           }
         }, 650);
       } else {
@@ -758,23 +764,35 @@ function FingerGuide({ onStart }) {
         timerRef.current = setTimeout(() => {
           setStatus("waiting");
           setWrongKey("");
+          lockedRef.current = false;
         }, 700);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [current, step, status]);
 
+  useEffect(() => {
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [current, step, status]);
+  }, []);
 
   const keyboardRows = [
     ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
     ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
     ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
   ];
+
+  const resetGuide = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    lockedRef.current = false;
+    setStep(0);
+    setStatus("waiting");
+    setWrongKey("");
+  };
 
   if (status === "complete") {
     return (
@@ -803,15 +821,7 @@ function FingerGuide({ onStart }) {
             Start your first lesson →
           </button>
 
-          <button
-            className="textbtn"
-            onClick={() => {
-              if (timerRef.current) clearTimeout(timerRef.current);
-              setStep(0);
-              setStatus("waiting");
-              setWrongKey("");
-            }}
-          >
+          <button className="textbtn" onClick={resetGuide}>
             Practice again
           </button>
         </div>
@@ -841,7 +851,7 @@ function FingerGuide({ onStart }) {
         </div>
       </div>
 
-      <div className="fingerProgress">
+      <div className="fingerProgress" aria-label={`Finger tutorial step ${step + 1} of ${steps.length}`}>
         {steps.map((item, i) => (
           <div
             key={item.key}
@@ -948,6 +958,7 @@ function FingerGuide({ onStart }) {
                         active ? "activeKey" : "",
                         completed ? "completedKey" : ""
                       ].join(" ")}
+                      aria-label={active ? `Target key ${key}` : key}
                     >
                       {key}
                       {active && <i>●</i>}
