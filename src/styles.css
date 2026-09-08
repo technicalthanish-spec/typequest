@@ -213,12 +213,12 @@
     0 0 25px #a98cff,
     inset 5px 5px 10px #ffffff35,
     inset -6px -8px 12px #26165d;
-  animation:fingerBounce 1.2s infinite;
+  animation:fingerBounce 1.2s ease-in-out infinite;
 }
 
 @keyframes fingerBounce{
-  0%,100%{transform:translateY(0) rotate(8deg)}
-  50%{transform:translateY(-13px) rotate(8deg)}
+  0%,100%{translate:0 0}
+  50%{translate:0 -13px}
 }
 
 .thumb{
@@ -264,7 +264,7 @@
   50%{transform:translate(-50%,7px)}
 }
 
-.fingerVisual.right .fakeHand{
+.handVisual.right .fakeHand{
   transform:scaleX(-1) rotate(-8deg);
 }
 
@@ -661,5 +661,26 @@
 
   .lessonFooter{
     padding:12px;
+  }
+}
+
+/* ---------- KEYBOARD ROW ALIGNMENT ---------- */
+
+.tutorialKeyRow.row-1{
+  padding-left:18px;
+}
+
+.tutorialKeyRow.row-2{
+  padding-left:36px;
+}
+
+/* Keep row alignment responsive */
+@media(max-width:650px){
+  .tutorialKeyRow.row-1{
+    padding-left:10px;
+  }
+
+  .tutorialKeyRow.row-2{
+    padding-left:20px;
   }
 }
