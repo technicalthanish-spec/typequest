@@ -189,6 +189,7 @@ class AppErrorBoundary extends React.Component {
 }
 
 function TypeQuestApp() {
+  const [surpriseClosed, setSurpriseClosed] = useState(false);
   const [data, setData] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selected, setSelected] = useState(1);
@@ -355,7 +356,98 @@ function TypeQuestApp() {
   if (storageError) return <StorageError message={storageError} />;
   if (!data) return null;
   if (!data.profile) return <Login configured={isCloudConfigured} busy={cloudBusy} error={cloudError} onCloudAuth={handleCloudAuth} onLocalLogin={name => setData({ ...data, profile: { name, createdAt: new Date().toISOString() }, firstGuideSeen: false })} />;
+   if (!surpriseClosed) {
+    return (
+      <div
+        style={{
+          minHeight: "100dvh",
+          display: "grid",
+          placeItems: "center",
+          padding: "24px",
+          background: "linear-gradient(135deg, #240d25, #10152e)",
+          color: "#fff",
+          fontFamily: "inherit",
+        }}
+      >
+        <section
+          aria-labelledby="surprise-title"
+          style={{
+            width: "100%",
+            maxWidth: "520px",
+            padding: "clamp(24px, 6vw, 48px)",
+            borderRadius: "28px",
+            background: "#ffffff0d",
+            border: "1px solid #ffffff26",
+            textAlign: "center",
+            boxShadow: "0 24px 80px #0005",
+          }}
+        >
+          <div aria-hidden="true" style={{ fontSize: "56px" }}>
+            💌
+          </div>
 
+          <p
+            style={{
+              margin: "24px 0 14px",
+              color: "#ffb8d5",
+              letterSpacing: "3px",
+              fontSize: "13px",
+            }}
+          >
+            A LITTLE SURPRISE FOR YOU
+          </p>
+
+          <h1
+            id="surprise-title"
+            style={{
+              fontSize: "clamp(30px, 7vw, 48px)",
+              lineHeight: 1.2,
+              margin: "0 0 24px",
+              color: "#fff",
+            }}
+          >
+            I love you,
+            <br />
+            meri jaan ❤️
+          </h1>
+
+          <p
+            style={{
+              fontSize: "18px",
+              lineHeight: 1.8,
+              color: "#ead8e5",
+              marginBottom: "30px",
+            }}
+          >
+            Aaj typing practice se pehle,
+            ek chhoti si baat…
+            <br />
+            Tum mere liye bahut special ho.
+            Ye surprise sirf tumhari smile ke liye. 💗
+          </p>
+
+          <button
+            type="button"
+            autoFocus
+            onClick={() => setSurpriseClosed(true)}
+            style={{
+              width: "100%",
+              padding: "17px 20px",
+              border: "none",
+              borderRadius: "14px",
+              background: "#ffb8d5",
+              color: "#301126",
+              fontSize: "16px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Continue to TypeQuest →
+          </button>
+        </section>
+      </div>
+    );
+  }
   const level = LEVELS[selected - 1];
   const completedCount = Object.keys(data.completed).length;
   const unlocked = id => id <= Math.min(50, data.currentLevel);
