@@ -422,8 +422,11 @@ function TypeQuestApp() {
             Aaj typing practice se pehle,
             ek chhoti si baat…
             <br />
-            Tum mere liye bahut special ho.
-            Ye surprise sirf tumhari smile ke liye. 💗
+            AAP mere liye bhut special ho.
+            Ye surprise sirf apki smile ke liye .
+            but aap app open nhi krte itni 
+            mehnt s bnai manlia coding ni ki 
+            but tym to dia na mene bchuu💗
           </p>
 
           <button
