@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { dbGet, dbSet, dbClear } from "./lib/db";
+import { calcMetrics, matchesCharacter, isLinearEdit } from "./lib/typing";
 import { LEVELS } from "./data/levels";
 import { supabase, isCloudConfigured } from "./lib/supabase";
 
@@ -132,15 +133,6 @@ function formatTime(sec) {
   return `${m}:${s}`;
 }
 
-function calcMetrics(text, typed, seconds) {
-  let correct = 0, errors = 0;
-  for (let i = 0; i < typed.length; i++) typed[i] === text[i] ? correct++ : errors++;
-  const minutes = Math.max(seconds / 60, 1 / 60);
-  const wpm = Math.round((correct / 5) / minutes);
-  const accuracy = typed.length ? Math.round((correct / typed.length) * 1000) / 10 : 0;
-  return { correct, errors, wpm, accuracy };
-}
-
 function starsFor(m, level) {
   if (m.accuracy < level.minAccuracy) return 0;
   if (m.accuracy >= 98 && m.wpm >= level.targetWpm * 1.15) return 3;
@@ -227,6 +219,7 @@ function TypeQuestApp() {
           cloudSavePendingRef.current = null;
           if (snapshot.generation !== cloudGenerationRef.current) continue;
           await saveCloudData(snapshot.state, snapshot.userId, cloudRevisionRef);
+          setCloudError("");
         }
       } catch (e) {
         setCloudError(e?.message || "Cloud sync failed.");
@@ -242,6 +235,7 @@ function TypeQuestApp() {
     let active = true;
     loadData().then(async local => {
       if (!active) return;
+      let cloudReady = !isCloudConfigured;
       if (isCloudConfigured) {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -251,16 +245,21 @@ function TypeQuestApp() {
             if (cloud) {
               cloudRevisionRef.current = cloud.revision;
               local = cloud.state;
-            } else if (local.profile?.email && local.profile.email.toLowerCase() !== (user.email || "").toLowerCase()) {
+            } else if (!local.profile?.email || local.profile.email.toLowerCase() !== (user.email || "").toLowerCase()) {
               // Never copy another account's cached progress into a new account.
-              local = normalizeData(null);
+              local = normalizeData({ profile: {
+                name: user.user_metadata?.name || user.email?.split("@")[0] || "Player",
+                email: user.email,
+                createdAt: new Date().toISOString()
+              } });
             } else if (local.profile) {
               await saveCloudData(local, user.id, cloudRevisionRef);
             }
           }
+          cloudReady = true;
         } catch (e) { if (active) setCloudError(e?.message || "Cloud sync is unavailable."); }
       }
-      if (active) { cloudHydratedRef.current = true; setData(local); setBoot(false); }
+      if (active) { cloudHydratedRef.current = cloudReady; setData(local); setBoot(false); }
     }).catch(e => { if (active) { setStorageError(e?.message || "TypeQuest could not access local storage."); setBoot(false); } });
     return () => { active = false; };
   }, []);
@@ -293,6 +292,7 @@ function TypeQuestApp() {
 
   const handleCloudAuth = async ({ mode, email, password, name }) => {
     if (!isCloudConfigured) throw new Error("Cloud login is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.");
+    cloudHydratedRef.current = false;
     setCloudBusy(true); setCloudError("");
     try {
       if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Enter a valid email address.");
@@ -333,15 +333,19 @@ function TypeQuestApp() {
     cloudSavePendingRef.current = null;
     if (cloudSavePromiseRef.current) await cloudSavePromiseRef.current;
     try {
-      if (isCloudConfigured) await supabase.auth.signOut();
+      if (isCloudConfigured) {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
       await dbClear();
+      setCloudUser(null);
+      cloudHydratedRef.current = false;
+      cloudRevisionRef.current = 0;
+      setData(normalizeData(null));
+      setView("dashboard");
     } catch (e) {
       setCloudError(e?.message || "Could not log out cleanly.");
     } finally {
-      setCloudUser(null);
-      cloudHydratedRef.current = false;
-      setData(normalizeData(null));
-      setView("dashboard");
       suppressPersistenceRef.current = false;
       setCloudBusy(false);
     }
@@ -449,16 +453,17 @@ function TypeQuestApp() {
   };
 
   return <div className={data.settings.theme === "light" ? "app light" : "app"}>
-    <header className="topbar"><div className="brand" onClick={() => setView("dashboard")}><span className="logo">⌨</span><div><b>TypeQuest</b><small>adaptive typing coach {cloudUser ? "• cloud synced" : "• local"}</small></div></div><div className="topstats"><span>⭐ {data.totalStars}</span><span>⚡ {data.xp} XP</span><span>🔥 {data.streak}</span><button className="ghost" onClick={() => setData({ ...data, settings: { ...data.settings, theme: data.settings.theme === "dark" ? "light" : "dark" } })}>☼</button></div></header>
+    <header className="topbar"><div className="brand" onClick={() => setView("dashboard")}><span className="logo">⌨</span><div><b>TypeQuest</b><small>adaptive typing coach {cloudUser ? (cloudError ? "• sync needs attention" : "• cloud connected") : "• local"}</small></div></div><div className="topstats"><span>⭐ {data.totalStars}</span><span>⚡ {data.xp} XP</span><span>🔥 {data.streak}</span><button className="ghost" onClick={() => setData({ ...data, settings: { ...data.settings, theme: data.settings.theme === "dark" ? "light" : "dark" } })}>☼</button></div></header>
     <main className="shell"><aside className="sidebar"><button className={view === "dashboard" ? "nav active" : "nav"} onClick={() => setView("dashboard")}>⌂ Dashboard</button><button className={view === "map" ? "nav active" : "nav"} onClick={() => setView("map")}>◈ Level Map</button><button className={view === "history" ? "nav active" : "nav"} onClick={() => setView("history")}>◷ History</button><button className={view === "stats" ? "nav active" : "nav"} onClick={() => setView("stats")}>▣ Progress</button><div className="sidebottom"><button className="nav" onClick={() => setShowBackup(true)}>⇅ Backup</button><button className={view === "guide" ? "nav active" : "nav"} onClick={() => setView("guide")}>⌨ Finger Guide</button>{cloudUser ? <button className="nav" onClick={handleLogout} disabled={cloudBusy}>⇤ Log out</button> : <button className="nav" onClick={() => setData({ ...data, profile: null })}>⇤ Change Name</button>}<button className="nav danger" onClick={resetAll}>⌫ Reset Data</button></div></aside>
       <section className="content">
+        {cloudError && <div className="card errorText" role="alert">Cloud sync: {cloudError} Your current progress remains on this device. Export a backup before reloading.</div>}
         {view === "dashboard" && <Dashboard data={data} level={LEVELS[Math.min(data.currentLevel, 50) - 1]} onStart={startLevel} onMap={() => setView("map")} onStats={() => setView("stats")} onHistory={() => setView("history")} onGuide={() => setView("guide")} />}
         {view === "map" && <LevelMap data={data} onStart={startLevel} />}
         {view === "learn" && <Learn level={level} onStart={() => setView("warmup")} />}
         {view === "warmup" && <TypingStage key={`warmup-${selected}`} level={level} stage="warmup" text={level.warmup} exactCase={level.id >= 11} onDone={(delta) => { addKeyStats(delta); setView("practice"); }} onSkip={(delta) => { addKeyStats(delta); setView("practice"); }} />}
         {view === "practice" && <TypingStage key={`practice-${selected}`} level={level} stage="practice" text={level.practice} exactCase={level.id >= 11} onDone={(delta) => { addKeyStats(delta); setView("challenge"); }} onSkip={(delta) => { addKeyStats(delta); setView("challenge"); }} />}
         {view === "challenge" && <TypingStage key={`challenge-${selected}`} level={level} stage="challenge" text={level.challenge} exactCase={level.id >= 11} graded onDone={(delta, metrics, seconds) => { addKeyStats(delta); finishLevel({ ...metrics, seconds, xp: level.xp, stars: starsFor(metrics, level) }); }} onSkip={(delta, metrics, seconds) => { addKeyStats(delta); finishLevel({ ...metrics, seconds, xp: 0, stars: 0, skipped: true }); }} />}
-        {view === "results" && <Results level={level} data={data} onNext={() => selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
+        {view === "results" && <Results level={level} data={data} onNext={() => data.attempts[0]?.stars > 0 && selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
         {view === "history" && <History data={data} />}
         {view === "stats" && <Stats data={data} onDrill={() => setView("weakdrill")} />}
         {view === "guide" && <FingerGuide onStart={() => setView("dashboard")} />}
@@ -609,17 +614,16 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
   const keystrokesRef = useRef(0);
   const correctKeystrokesRef = useRef(0);
   const cumulativeErrorsRef = useRef(0);
-  const finishTimerRef = useRef(null);
+  const finishedRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
-    return () => { if (finishTimerRef.current) clearTimeout(finishTimerRef.current); };
   }, []);
 
   useEffect(() => {
     if (!started || finished) return;
     const tick = () => {
-      const elapsed = Math.max(0, (Date.now() - startedAtRef.current) / 1000);
+      const elapsed = Math.max(0, (performance.now() - startedAtRef.current) / 1000);
       setSeconds(elapsed);
     };
     tick();
@@ -627,25 +631,22 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
     return () => clearInterval(t);
   }, [started, finished]);
 
-  const metrics = calcMetrics(text, typed, seconds);
   const stageTitle = stage === "warmup" ? "Warm-up" : stage === "practice" ? "Practice" : "Challenge";
 
   const makeMetrics = (value, elapsed) => {
-    const base = calcMetrics(text, value, elapsed);
-    if (keystrokesRef.current > 0) {
-      base.accuracy = Math.round((correctKeystrokesRef.current / keystrokesRef.current) * 1000) / 10;
-      base.errors = cumulativeErrorsRef.current;
-    } else {
-      base.accuracy = 0;
-      base.errors = 0;
-    }
-    return base;
+    return calcMetrics(text, value, elapsed, exactCase, {
+      attempts: keystrokesRef.current,
+      correct: correctKeystrokesRef.current,
+      errors: cumulativeErrorsRef.current
+    });
   };
+  const metrics = makeMetrics(typed, seconds);
 
   const finish = (skip = false, finalTyped = typed) => {
-    if (finished) return;
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     setFinished(true);
-    const elapsed = startedAtRef.current ? Math.max(0, (Date.now() - startedAtRef.current) / 1000) : 0;
+    const elapsed = startedAtRef.current !== null ? Math.max(0, (performance.now() - startedAtRef.current) / 1000) : 0;
     const finalSeconds = Math.max(seconds, elapsed);
     const finalMetrics = makeMetrics(finalTyped, finalSeconds);
     if (skip) { onSkip?.(deltaRef.current, finalMetrics, finalSeconds); return; }
@@ -653,14 +654,18 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
   };
 
   const onChange = e => {
-    if (finished) return;
+    if (finishedRef.current) return;
     const raw = e.target.value;
     // Keep the exercise linear: edits are allowed, but the caret is always forced to the end.
     // Backspace/Delete lets learners recover from mistakes without moving the target cursor.
-    if (raw.length > typed.length && !raw.startsWith(typed)) return;
+    if (!isLinearEdit(typed, raw)) {
+      e.target.value = typed;
+      e.target.setSelectionRange(typed.length, typed.length);
+      return;
+    }
     const value = raw.slice(0, text.length);
     if (!started && value.length) {
-      startedAtRef.current = Date.now();
+      startedAtRef.current = performance.now();
       setStarted(true);
     }
     if (value.length > typed.length) {
@@ -669,7 +674,7 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
         const id = expected?.toLowerCase();
         if (!id) continue;
         const old = deltaRef.current[id] || { attempts: 0, errors: 0 };
-        const sameLetter = expected && value[index] && (exactCase ? expected === value[index] : expected.toLowerCase() === value[index].toLowerCase());
+        const sameLetter = matchesCharacter(expected, value[index], exactCase);
         keystrokesRef.current += 1;
         if (sameLetter) correctKeystrokesRef.current += 1;
         else cumulativeErrorsRef.current += 1;
@@ -681,9 +686,7 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
     }
     setTyped(value);
     if (value.length >= text.length) {
-      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
-      // Let React commit the final character before calculating the result.
-      finishTimerRef.current = setTimeout(() => finish(false, value), 0);
+      finish(false, value);
     }
   };
 
@@ -695,8 +698,8 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
       <div className="liveStats"><b>{formatTime(seconds)}</b><span>{metrics.wpm} WPM</span><span>{metrics.accuracy}% ACC</span><span>{metrics.errors} ERR</span></div>
     </div>
     <div className="card typingCard">
-      <div className="target">{targetText.map((ch, i) => <span key={i} className={i < typed.length ? (typed[i] === ch ? "correct" : "wrong") : (i === typed.length ? "cursor" : "")}>{ch === " " ? " " : ch}</span>)}</div>
-      <textarea ref={inputRef} value={typed} onChange={onChange} onKeyDown={e => { if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key)) e.preventDefault(); }} onFocus={e => { e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length); }} onPaste={e => e.preventDefault()} onDrop={e => e.preventDefault()} onDragOver={e => e.preventDefault()} spellCheck="false" autoCapitalize="off" autoCorrect="off" placeholder="Start typing here…" disabled={finished}/>
+      <div className="target">{targetText.map((ch, i) => <span key={i} className={i < typed.length ? (matchesCharacter(ch, typed[i], exactCase) ? "correct" : "wrong") : (i === typed.length ? "cursor" : "")}>{ch === " " ? " " : ch}</span>)}</div>
+      <textarea aria-label={`${stageTitle} typing input`} ref={inputRef} value={typed} onChange={onChange} onKeyDown={e => { if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key)) e.preventDefault(); }} onFocus={e => { e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length); }} onPaste={e => e.preventDefault()} onDrop={e => e.preventDefault()} onDragOver={e => e.preventDefault()} spellCheck="false" autoCapitalize="off" autoCorrect="off" placeholder="Start typing here…" disabled={finished}/>
       <div className="row between hint"><small>{graded ? `Target ${level.targetWpm} WPM • minimum ${level.minAccuracy}% accuracy` : "Mistakes are tracked to personalize your future drills."}</small><small>{typed.length}/{text.length}</small></div>
       <div className="stageActions"><button className="ghost" onClick={() => finish(true)}>Skip {graded ? "challenge" : stageTitle.toLowerCase()} →</button>{Object.keys(deltaRef.current).length > 0 && <small>{Object.keys(deltaRef.current).length} key{Object.keys(deltaRef.current).length === 1 ? "" : "s"} tracked</small>}</div>
     </div>
@@ -714,6 +717,6 @@ function WeakDrill({ data, onBack, onDone }) { const textRef = useRef(buildDrill
 function FingerGuide({ onStart }) { const left = [["A","LITTLE"],["S","RING"],["D","MIDDLE"],["F","INDEX"]], right = [["J","INDEX"],["K","MIDDLE"],["L","RING"],[";","LITTLE"]]; return <div className="fingerGuide"><div className="pageTitle"><p className="eyebrow">FINGER GUIDE • QUICK REFERENCE</p><h1>Start with the<br/><span>right hand position.</span></h1><p className="muted">Use this quick reference anytime to check finger placement before practice.</p></div><div className="card handCard"><div className="keyboardMini"><div className="keyRow">{["Q","W","E","R","T","Y","U","I","O","P"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow homeKeys">{["A","S","D","F","G","H","J","K","L",";"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow">{["Z","X","C","V","B","N","M",",",".","/"].map(k => <span key={k}>{k}</span>)}</div></div><div className="placementGrid"><Placement title="Left hand" keys={left}/><Placement title="Right hand" keys={right}/></div><div className="guideRules"><div><b>F & J are anchors</b><small>Keep your index fingers on the raised bumps.</small></div><div><b>Thumbs → Space</b><small>Use either thumb comfortably.</small></div><div><b>Eyes on the text</b><small>Try not to look down at the keyboard.</small></div></div></div><div className="challengePreview card"><div><p className="eyebrow">QUICK REFERENCE</p><h2>Ready to practice?</h2><p className="muted">Return to your dashboard and start a level whenever you are ready.</p></div><button className="primary" onClick={onStart}>Back to dashboard →</button></div></div>; }
 function Placement({ title, keys }) { return <div className="placementCol"><h3>{title}</h3>{keys.map(([key,finger]) => <div className="fingerRow" key={key}><b>{key}</b><span>{finger} finger</span></div>)}</div>; }
 function Empty({ text }) { return <div className="empty">{text}</div>; }
-function Backup({ data, setData, close }) { const fileRef = useRef(); const download = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `typequest-backup-${todayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }; const importFile = async e => { const f = e.target.files?.[0]; if (!f) return; try { if (f.size > 2 * 1024 * 1024) throw Error("Backup is too large"); const d = JSON.parse(await f.text()); if (!d || typeof d !== "object" || Array.isArray(d) || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) || !Array.isArray(d.attempts) || d.attempts.length > 500) throw Error("Invalid backup"); const clean = normalizeData(d); setData(clean); close(); } catch { alert("That backup file is not a valid TypeQuest backup."); } finally { e.target.value = ""; } }; return <div className="modalWrap"><div className="modal card"><button className="close" onClick={close}>×</button><p className="eyebrow">LOCAL BACKUP</p><h2>Keep your progress safe</h2><p className="muted">Export a JSON copy. It never goes to the cloud.</p><button className="primary full" onClick={download}>Download backup</button><button className="ghost full" onClick={() => fileRef.current.click()}>Import backup</button><input ref={fileRef} hidden type="file" accept=".json" onChange={importFile}/></div></div>; }
+function Backup({ data, setData, close }) { const fileRef = useRef(); const download = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `typequest-backup-${todayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }; const importFile = async e => { const f = e.target.files?.[0]; if (!f) return; try { if (f.size > 2 * 1024 * 1024) throw Error("Backup is too large"); const d = JSON.parse(await f.text()); if (!d || typeof d !== "object" || Array.isArray(d) || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) || !Array.isArray(d.attempts) || d.attempts.length > 500) throw Error("Invalid backup"); const clean = normalizeData(d); setData({ ...clean, profile: data.profile }); close(); } catch { alert("That backup file is not a valid TypeQuest backup."); } finally { e.target.value = ""; } }; return <div className="modalWrap"><div className="modal card"><button className="close" onClick={close}>×</button><p className="eyebrow">LOCAL BACKUP</p><h2>Keep your progress safe</h2><p className="muted">Export a JSON copy to your device. Importing replaces your progress and also syncs it when you are signed in.</p><button className="primary full" onClick={download}>Download backup</button><button className="ghost full" onClick={() => fileRef.current.click()}>Import backup</button><input ref={fileRef} hidden type="file" accept=".json" onChange={importFile}/></div></div>; }
 
 export default function App() { return <AppErrorBoundary><TypeQuestApp /></AppErrorBoundary>; }
