@@ -15,9 +15,9 @@ export function playKeySound() {
     const gain = audioContext.createGain();
 
     oscillator.type = "square";
-    oscillator.frequency.value = 170 + Math.random() * 40;
+    oscillator.frequency.value = 220 + Math.random() * 60;
 
-    gain.gain.setValueAtTime(0.025, audioContext.currentTime);
+    gain.gain.setValueAtTime(0.9, audioContext.currentTime);
     gain.gain.exponentialRampToValueAtTime(
       0.001,
       audioContext.currentTime + 0.035
