@@ -1,0 +1,18 @@
+import React, { useState } from 'react';
+import { makePlan, meetsTarget } from '../lib/coach';
+
+export default function PersonalCoach({ data, level, Stage, onPractice, onComplete, onLevel }) {
+  const [plan] = useState(()=>makePlan(data,level));
+  const [active,setActive] = useState(null);
+  const [result,setResult] = useState(null);
+  const completed = data.settings.coachDay === plan.day ? data.settings.coachTasks || [] : [];
+  const task = plan.tasks.find(t=>t.id===active);
+  if(task && !result) return <div className="coachTraining"><button className="textbtn" onClick={()=>setActive(null)}>← Back to my plan</button><p className="eyebrow">PERSONAL TRAINING · {task.title}</p><p className="muted">{task.detail}</p><Stage key={active} level={level} stage="practice" standalone text={task.text} exactCase={level.id>=11} onDone={(delta,metrics,seconds)=>{onPractice(delta,metrics,seconds);const passed=meetsTarget(task,metrics);if(passed)onComplete(plan.day,task.id);setResult({...metrics,passed});}} onSkip={(delta,metrics,seconds)=>{onPractice(delta,metrics,seconds);setActive(null);}}/></div>;
+  return <div className="personalCoach"><div className="questHeading"><div><p className="eyebrow">BUILT AROUND YOUR TYPING</p><h1>Your next<br/><em>breakthrough.</em></h1></div><span className="rankPill">✳ Personal coach</span></div>
+    {result && <section className="questPanel coachResult" role="status"><span className="coachOrb">{result.passed?'✓':'↺'}</span><div><h2>{result.passed?'Mission complete.':'A useful practice round.'}</h2><p>{result.wpm} WPM · {result.accuracy}% accuracy · {result.errors} errors</p><p>{result.passed?'Your daily plan has been updated.':'Target not reached yet. Your practice time and key data are still saved.'}</p></div><button className="ghost" onClick={()=>setResult(null)}>Try again</button><button className="primary" onClick={()=>{setResult(null);setActive(null);}}>Back to plan</button></section>}
+    <section className="coachBrief questPanel"><span className="coachOrb">✳</span><div><p className="eyebrow">TODAY’S FOCUS · {plan.focus}</p><h2>{plan.title}</h2><p>{plan.reason}</p><small>Based on your typing records. This plan stays steady while you practise; reopening it refreshes recommendations.</small></div><div className="coachEvidence"><strong>{plan.accuracy===null?'—':`${plan.accuracy}%`}</strong><small>RECENT ACCURACY</small><strong>{plan.wpm ?? '—'}</strong><small>RECENT WPM</small></div></section>
+    <div className="questSectionTitle"><div><p className="eyebrow">A LITTLE BETTER, EVERY DAY</p><h2>Your three-step plan</h2></div><span className="rankPill">{completed.length}/3 complete today</span></div>
+    <div className="coachMissions">{plan.tasks.map((t,i)=><section className={`questPanel coachMission ${completed.includes(t.id)?'missionDone':''}`} key={t.id}><div className="missionIndex">{completed.includes(t.id)?'✓':`0${i+1}`}</div><span className="questTag">{['KEY CONTROL','PRECISION','FLOW'][i]}</span><h2>{t.title}</h2><p>{t.detail}</p><div className="missionTarget"><b>{t.targetAccuracy}%</b> accuracy{t.targetWpm>0&&<> · <b>{t.targetWpm}</b> WPM</>}</div><button className={completed.includes(t.id)?'ghost':'primary'} onClick={()=>{setActive(t.id);setResult(null);}}>{completed.includes(t.id)?'Practise again':'Start mission'} →</button></section>)}</div>
+    <section className="questPanel coachPreview"><div><p className="eyebrow">PUT IT INTO PRACTICE</p><h2>{completed.length===3?'Training complete. Take it to the map.':'Ready for your next level?'}</h2><p>Challenges update the speed and accuracy baseline for your next plan.</p></div><button className="ghost" onClick={()=>onLevel(level.id)}>Open level {level.id} ↗</button></section>
+  </div>;
+}

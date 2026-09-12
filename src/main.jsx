@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App.jsx";
 import "./styles.css";
 import "./upgrade.css";
+import "./adventure.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
