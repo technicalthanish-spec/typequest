@@ -1,6 +1,6 @@
 let audioContext = null;
 
-export function playKeySound(key = "") {
+export function playKeySound(key = "", volume = 0.8) {
   try {
     const AudioContext =
       window.AudioContext || window.webkitAudioContext;
@@ -51,10 +51,10 @@ export function playKeySound(key = "") {
     );
 
     // LOUD main layer
-    gain.gain.setValueAtTime(
-      1.15,
-      now
-    );
+   gain.gain.setValueAtTime(
+  1.15 * volume,
+  now
+);
 
     gain.gain.exponentialRampToValueAtTime(
       0.001,
@@ -109,10 +109,10 @@ export function playKeySound(key = "") {
     filter.Q.value = 0.9;
 
     // LOUD click layer
-    noiseGain.gain.setValueAtTime(
-      0.72,
-      now
-    );
+   noiseGain.gain.setValueAtTime(
+  0.72 * volume,
+  now
+);
 
     noiseGain.gain.exponentialRampToValueAtTime(
       0.001,
@@ -141,10 +141,10 @@ export function playKeySound(key = "") {
       now + 0.025
     );
 
-    clickGain.gain.setValueAtTime(
-      0.38,
-      now
-    );
+  clickGain.gain.setValueAtTime(
+  0.38 * volume,
+  now
+);
 
     clickGain.gain.exponentialRampToValueAtTime(
       0.001,
