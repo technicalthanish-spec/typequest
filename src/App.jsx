@@ -25,7 +25,8 @@ const DEFAULT = {
   dailyMinutes: {},
   settings: {
   theme: "dark",
-  keySound: true
+  keySound: true,
+  keySoundVolume: 0.8
 },
   achievements: [],
   firstGuideSeen: false,
@@ -613,16 +614,116 @@ function TypeQuestApp() {
       <section className="content" id="main-content" tabIndex={-1} data-palette={data.settings.questPalette || 'forest'}>
         <div className="questUtility"><span>THE TYPING ADVENTURE</span><button className="ghost" aria-pressed={view==='coach'} onClick={()=>setView('coach')}>✳ My personal coach</button></div>
         {['warmup','practice','challenge','weakdrill'].includes(view) && <div className="focusTools"><button className="ghost" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode?'Exit focus mode':'Focus mode'}</button><button className="textbtn" onClick={() => setView('dashboard')}>Exit practice</button></div>}
-        {view === 'settings' && <div className="settingsPage"><p className="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><section className="card"><h2>Daily practice goal</h2><label htmlFor="daily-goal">Minutes per day</label><select id="daily-goal" value={data.settings.dailyGoal || 10} onChange={e=>setData({...data,settings:{...data.settings,dailyGoal:Number(e.target.value)}})}>{[5,10,15,20,30].map(n=><option key={n} value={n}>{n} minutes</option>)}</select><button className="ghost" onClick={()=>{setSurpriseClosed(false);setData({...data,settings:{...data.settings,welcomeSeen:false}});}}>Read welcome message again</button></section><section className="card"><h2>Your data</h2>{cloudUser && <button className="ghost" onClick={async()=>{try{const backup=await dbGet(`conflict-backup:${cloudUser.id}`);if(!backup){alert('No retained conflict backup on this device.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='typequest-conflict-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){setCloudError(e.message);}}}>Download retained conflict backup</button>}<p className="muted">Export a backup before replacing or resetting progress.</p><button className="primary" onClick={()=>setShowBackup(true)}>Backup and restore</button><button className="ghost danger" onClick={resetAll}>Reset progress</button></section></div>}
+        {view === 'settings' && <div className="settingsPage"><p className="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><section className="card">
+  <h2>Typing sound</h2>
+
+  <label className="showPassword">
+    <input
+      type="checkbox"
+      checked={data.settings.keySound !== false}
+      onChange={e =>
+        setData({
+          ...data,
+          settings: {
+            ...data.settings,
+            keySound: e.target.checked
+          }
+        })
+      }
+    />
+    Key sounds
+  </label>
+
+  <label htmlFor="key-sound-volume">
+    Volume: {Math.round((data.settings.keySoundVolume ?? 0.8) * 100)}%
+  </label>
+
+  <input
+    id="key-sound-volume"
+    type="range"
+    min="0"
+    max="1"
+    step="0.05"
+    value={data.settings.keySoundVolume ?? 0.8}
+    disabled={data.settings.keySound === false}
+    onChange={e =>
+      setData({
+        ...data,
+        settings: {
+          ...data.settings,
+          keySoundVolume: Number(e.target.value)
+        }
+      })
+    }
+  />
+</section><section className="card"><h2>Daily practice goal</h2><label htmlFor="daily-goal">Minutes per day</label><select id="daily-goal" value={data.settings.dailyGoal || 10} onChange={e=>setData({...data,settings:{...data.settings,dailyGoal:Number(e.target.value)}})}>{[5,10,15,20,30].map(n=><option key={n} value={n}>{n} minutes</option>)}</select><button className="ghost" onClick={()=>{setSurpriseClosed(false);setData({...data,settings:{...data.settings,welcomeSeen:false}});}}>Read welcome message again</button></section><section className="card"><h2>Your data</h2>{cloudUser && <button className="ghost" onClick={async()=>{try{const backup=await dbGet(`conflict-backup:${cloudUser.id}`);if(!backup){alert('No retained conflict backup on this device.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='typequest-conflict-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){setCloudError(e.message);}}}>Download retained conflict backup</button>}<p className="muted">Export a backup before replacing or resetting progress.</p><button className="primary" onClick={()=>setShowBackup(true)}>Backup and restore</button><button className="ghost danger" onClick={resetAll}>Reset progress</button></section></div>}
         {cloudError && <div className="card errorText" role="alert">{cloudError.includes('SYNC_CONFLICT') ? 'Another device has newer progress. Your local version is preserved. Export a backup, then load the cloud version to continue.' : 'Your progress is on this device, but the cloud save needs attention.'} <button className="ghost" onClick={()=>{if(cloudUser)hydrateAccount(cloudUser).catch(e=>setCloudError(e.message));}}>Retry save</button><button className="ghost" onClick={()=>setShowBackup(true)}>Export backup</button>{cloudError.includes('SYNC_CONFLICT') && <button className="ghost" onClick={async()=>{try {const cloud=await loadCloudData();if(cloud){await dbSet(`conflict-backup:${cloudUser.id}`,data);await dbSet(`pending:${cloudUser.id}`,null);saveQueueRef.current=null;cloudRevisionRef.current=cloud.revision;lastSavedRef.current=JSON.stringify(cloud.state);setCloudError('');setSyncStatus('saved');setData(cloud.state);await dbSet(`state:${cloudUser.id}`,cloud.state);}} catch(e){setCloudError(e.message);}}}>Use cloud version</button>}</div>}
         {view === "dashboard" && <AdventureHome data={data} onStart={startLevel} onMap={() => setView("map")} onCoach={() => setView("coach")} onTheme={questPalette=>setData(prev=>({...prev,settings:{...prev.settings,questPalette}}))} />}
         {view === "map" && <AdventureMap data={data} onStart={startLevel} />}
         {view === "coach" && <PersonalCoach data={data} level={LEVELS[Math.min(data.currentLevel,50)-1]} Stage={TypingStage} onPractice={addKeyStats} onLevel={startLevel} onComplete={(day,id)=>setData(prev=>({...prev,settings:{...prev.settings,coachDay:day,coachTasks:[...new Set([...(prev.settings.coachDay===day?prev.settings.coachTasks||[]:[]),id])]}}))} />}
         {view === "learn" && <Learn level={level} onStart={() => setView("warmup")} />}
-        {view === "warmup" && <TypingStage key={`warmup-${selected}`} level={level} stage="warmup" text={level.warmup} exactCase={level.id >= 11} onDone={(delta, metrics, seconds) => { addKeyStats(delta, metrics, seconds); setView("practice"); }} onSkip={(delta, metrics, seconds) => { addKeyStats(delta, metrics, seconds); setView("practice"); }} />}
-        {view === "practice" && <TypingStage key={`practice-${selected}`} level={level} stage="practice" text={level.practice} exactCase={level.id >= 11} onDone={(delta, metrics, seconds) => { addKeyStats(delta, metrics, seconds); setView("challenge"); }} onSkip={(delta, metrics, seconds) => { addKeyStats(delta, metrics, seconds); setView("challenge"); }} />}
-        {view === "challenge" && <TypingStage key={`challenge-${selected}`} level={level} stage="challenge" text={level.challenge} exactCase={level.id >= 11} graded onDone={(delta, metrics, seconds) => { addKeyStats(delta); finishLevel({ ...metrics, seconds, xp: level.xp, stars: starsFor(metrics, level) }); }} onSkip={(delta, metrics, seconds) => { addKeyStats(delta); finishLevel({ ...metrics, seconds, xp: 0, stars: 0, skipped: true }); }} />}
-        {view === "results" && <Results level={level} data={data} onNext={() => data.attempts[0]?.stars > 0 && selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
+{view === "warmup" && <TypingStage
+  key={`warmup-${selected}`}
+  level={level}
+  stage="warmup"
+  text={level.warmup}
+  exactCase={level.id >= 11}
+  keySound={data.settings.keySound !== false}
+  keySoundVolume={data.settings.keySoundVolume ?? 0.8}
+  onDone={(delta, metrics, seconds) => {
+    addKeyStats(delta, metrics, seconds);
+    setView("practice");
+  }}
+  onSkip={(delta, metrics, seconds) => {
+    addKeyStats(delta, metrics, seconds);
+    setView("practice");
+  }}
+/>}        {view === "practice" && <TypingStage
+  key={`practice-${selected}`}
+  level={level}
+  stage="practice"
+  text={level.practice}
+  exactCase={level.id >= 11}
+  keySound={data.settings.keySound !== false}
+  keySoundVolume={data.settings.keySoundVolume ?? 0.8}
+  onDone={(delta, metrics, seconds) => {
+    addKeyStats(delta, metrics, seconds);
+    setView("challenge");
+  }}
+  onSkip={(delta, metrics, seconds) => {
+    addKeyStats(delta, metrics, seconds);
+    setView("challenge");
+  }}
+/>}
+{view === "challenge" && <TypingStage
+  key={`challenge-${selected}`}
+  level={level}
+  stage="challenge"
+  text={level.challenge}
+  exactCase={level.id >= 11}
+  graded
+  keySound={data.settings.keySound !== false}
+  keySoundVolume={data.settings.keySoundVolume ?? 0.8}
+  onDone={(delta, metrics, seconds) => {
+    addKeyStats(delta);
+    finishLevel({
+      ...metrics,
+      seconds,
+      xp: level.xp,
+      stars: starsFor(metrics, level)
+    });
+  }}
+  onSkip={(delta, metrics, seconds) => {
+    addKeyStats(delta);
+    finishLevel({
+      ...metrics,
+      seconds,
+      xp: 0,
+      stars: 0,
+      skipped: true
+    });
+  }}
+/>}        {view === "results" && <Results level={level} data={data} onNext={() => data.attempts[0]?.stars > 0 && selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
         {view === "history" && <History data={data} />}
         {view === "stats" && <Stats data={data} onDrill={() => setView("weakdrill")} />}
         {view === "guide" && <FingerGuide onStart={() => setView("dashboard")} />}
