@@ -3,7 +3,7 @@ used ai to help in it
 
 Reviewed source: technicalthanish-spec/typequest at 00160506fab9cdf6b1c22349fdb072ff6b59c010.
 
-## Changes
+## Changess
 
 - Unified character comparison across highlighting, WPM and accuracy. Levels 1–10 consistently ignore case; later lessons retain exact-case grading.
 - Live accuracy/error totals now use cumulative keystrokes, matching final results. Correcting a mistake no longer hides it in the live display.
