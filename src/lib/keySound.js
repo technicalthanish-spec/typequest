@@ -29,7 +29,7 @@ export function playKeySound() {
       now + 0.045
     );
 
-    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.setValueAtTime(0.39, now);
     gain.gain.exponentialRampToValueAtTime(
       0.001,
       now + 0.055
@@ -64,7 +64,7 @@ export function playKeySound() {
     filter.type = "highpass";
     filter.frequency.value = 1800;
 
-    noiseGain.gain.setValueAtTime(0.045, now);
+    noiseGain.gain.setValueAtTime(0.25, now);
     noiseGain.gain.exponentialRampToValueAtTime(
       0.001,
       now + 0.012
