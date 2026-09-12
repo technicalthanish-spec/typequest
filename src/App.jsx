@@ -199,6 +199,8 @@ function TypeQuestApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState(null);
   const [view, setView] = useState("dashboard");
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+const [latestVersion, setLatestVersion] = useState("");
   const [selected, setSelected] = useState(1);
   const [boot, setBoot] = useState(true);
   const [storageError, setStorageError] = useState("");
@@ -217,7 +219,36 @@ function TypeQuestApp() {
   const saveQueueRef = useRef(null);
   const explicitAuthRef = useRef(false);
   const lastSavedRef = useRef(null);
+useEffect(() => {
+  const checkForUpdate = async () => {
+    try {
+      const res = await fetch("/api/version", {
+        cache: "no-store"
+      });
 
+      if (!res.ok) return;
+
+      const info = await res.json();
+      const currentVersion =
+        localStorage.getItem("typequest-version");
+
+      if (!currentVersion) {
+        localStorage.setItem(
+          "typequest-version",
+          info.version
+        );
+        return;
+      }
+
+      if (currentVersion !== info.version) {
+        setLatestVersion(info.version);
+        setUpdateAvailable(true);
+      }
+    } catch {}
+  };
+
+  checkForUpdate();
+}, []);
   useEffect(() => {
     window.scrollTo({top:0,behavior:'instant'});
     setMenuOpen(false);
@@ -607,6 +638,60 @@ function TypeQuestApp() {
   };
 
   return <div className={`${data.settings.theme === "light" ? "app light" : "app"} ${focusMode && ['warmup','practice','challenge','weakdrill'].includes(view) ? 'focusMode' : ''}`}>
+  {updateAvailable && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.65)",
+      display: "grid",
+      placeItems: "center",
+      zIndex: 9999,
+      padding: 20
+    }}
+  >
+    <div
+      className="card"
+      style={{
+        width: "min(420px, 100%)",
+        textAlign: "center",
+        padding: 24
+      }}
+    >
+      <div style={{ fontSize: 42, marginBottom: 10 }}>
+        🚀
+      </div>
+
+      <h2>Update available</h2>
+
+      <p className="muted">
+        A newer version of TypeQuest is ready.
+      </p>
+
+      <button
+        className="primary full"
+        onClick={() => {
+          localStorage.setItem(
+            "typequest-version",
+            latestVersion
+          );
+
+          window.location.reload();
+        }}
+      >
+        Update Now
+      </button>
+
+      <button
+        className="ghost full"
+        onClick={() => setUpdateAvailable(false)}
+        style={{ marginTop: 10 }}
+      >
+        Later
+      </button>
+    </div>
+  </div>
+)}
     <a className="skipLink" href="#main-content">Skip to content</a>
     <header className="topbar"><div className="brand"><span className="logo">⌨</span><div><b>TypeQuest</b><small>adaptive typing coach {cloudUser ? (cloudError ? "• sync needs attention" : `• ${syncStatus==='saving'?'saving…':syncStatus==='pending'?'saved on device':'cloud saved'}`) : "• local"}</small></div></div><div className="topstats"><span>⭐ {data.totalStars}</span><span>⚡ {data.xp} XP</span><span>🔥 {data.streak}</span><button className="ghost" aria-label="Toggle light or dark theme" onClick={() => setData({ ...data, settings: { ...data.settings, theme: data.settings.theme === "dark" ? "light" : "dark" } })}>☼</button></div></header>
     <button className="mobileMenu ghost" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰ Menu</button>
