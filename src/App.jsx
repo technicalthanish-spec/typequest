@@ -820,6 +820,9 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
 
   const onChange = e => {
     if (finishedRef.current) return;
+    if (e.target.value.length > typed.length) {
+  playKeySound();
+}
     const raw = e.target.value;
     // Keep the exercise linear: edits are allowed, but the caret is always forced to the end.
     // Backspace/Delete lets learners recover from mistakes without moving the target cursor.
