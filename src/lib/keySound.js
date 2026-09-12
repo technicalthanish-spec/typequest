@@ -14,29 +14,30 @@ export function playKeySound(key = "") {
     const ctx = audioContext;
     const now = ctx.currentTime;
 
-    // Same key = same pleasant tone
+    // Same key = same sound variation
     let code = 0;
 
     for (let i = 0; i < key.length; i++) {
       code += key.charCodeAt(i);
     }
 
-    const variation = code % 45;
+    const variation = code % 60;
 
-    let frequency = 145 + variation;
+    let frequency = 150 + variation;
 
+    // Special keys
     if (key === " ") {
-      frequency = 105;
+      frequency = 95;
     }
 
     if (key === "Enter") {
-      frequency = 125;
+      frequency = 120;
     }
 
+    // Main soft tone
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
-    // Softer than square wave
     osc.type = "sine";
 
     osc.frequency.setValueAtTime(
@@ -45,29 +46,30 @@ export function playKeySound(key = "") {
     );
 
     osc.frequency.exponentialRampToValueAtTime(
-      frequency * 0.72,
-      now + 0.055
+      frequency * 0.68,
+      now + 0.06
     );
 
+    // LOUD main layer
     gain.gain.setValueAtTime(
-      0.32,
+      1.15,
       now
     );
 
     gain.gain.exponentialRampToValueAtTime(
       0.001,
-      now + 0.07
+      now + 0.085
     );
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.075);
+    osc.stop(now + 0.09);
 
-    // Soft mechanical click layer
+    // Mechanical click layer
     const bufferLength =
-      Math.floor(ctx.sampleRate * 0.009);
+      Math.floor(ctx.sampleRate * 0.012);
 
     const buffer = ctx.createBuffer(
       1,
@@ -85,7 +87,7 @@ export function playKeySound(key = "") {
       data[i] =
         (Math.random() * 2 - 1) *
         fade *
-        0.7;
+        0.85;
     }
 
     const noise =
@@ -101,20 +103,20 @@ export function playKeySound(key = "") {
 
     filter.type = "bandpass";
 
-    // Slightly different click for every key
     filter.frequency.value =
-      1300 + variation * 12;
+      1250 + variation * 14;
 
-    filter.Q.value = 0.8;
+    filter.Q.value = 0.9;
 
+    // LOUD click layer
     noiseGain.gain.setValueAtTime(
-      0.18,
+      0.72,
       now
     );
 
     noiseGain.gain.exponentialRampToValueAtTime(
       0.001,
-      now + 0.012
+      now + 0.018
     );
 
     noise.connect(filter);
@@ -122,6 +124,38 @@ export function playKeySound(key = "") {
     noiseGain.connect(ctx.destination);
 
     noise.start(now);
+
+    // Extra soft upper click
+    const clickOsc = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+
+    clickOsc.type = "triangle";
+
+    clickOsc.frequency.setValueAtTime(
+      650 + variation * 4,
+      now
+    );
+
+    clickOsc.frequency.exponentialRampToValueAtTime(
+      320,
+      now + 0.025
+    );
+
+    clickGain.gain.setValueAtTime(
+      0.38,
+      now
+    );
+
+    clickGain.gain.exponentialRampToValueAtTime(
+      0.001,
+      now + 0.03
+    );
+
+    clickOsc.connect(clickGain);
+    clickGain.connect(ctx.destination);
+
+    clickOsc.start(now);
+    clickOsc.stop(now + 0.035);
 
   } catch {}
 }
