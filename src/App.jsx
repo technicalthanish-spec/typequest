@@ -3,6 +3,10 @@ import { dbGet, dbSet, dbClear } from "./lib/db";
 import { calcMetrics, matchesCharacter, isLinearEdit } from "./lib/typing";
 import { LEVELS } from "./data/levels";
 import { playKeySound } from "./lib/keySound";
+import {
+  analyzeTypingSession,
+  generateAdaptiveDrill
+} from "./lib/typingIntelligence";
 import { supabase, isCloudConfigured } from "./lib/supabase";
 import Keyboard from "./components/Keyboard";
 import ProgressReport from "./components/ProgressReport";
@@ -791,14 +795,15 @@ useEffect(() => {
   graded
   keySound={data.settings.keySound !== false}
   keySoundVolume={data.settings.keySoundVolume ?? 0.8}
-  onDone={(delta, metrics, seconds) => {
+ onDone={(delta, metrics, seconds, intelligenceAnalysis) => {
     addKeyStats(delta);
     finishLevel({
-      ...metrics,
-      seconds,
-      xp: level.xp,
-      stars: starsFor(metrics, level)
-    });
+  ...metrics,
+  seconds,
+  xp: level.xp,
+  stars: starsFor(metrics, level),
+  intelligence: intelligenceAnalysis
+});
   }}
   onSkip={(delta, metrics, seconds) => {
     addKeyStats(delta);
@@ -969,6 +974,7 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
   const correctKeystrokesRef = useRef(0);
   const cumulativeErrorsRef = useRef(0);
   const finishedRef = useRef(false);
+  const intelligenceKeystrokesRef = useRef([]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -994,64 +1000,158 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
       errors: cumulativeErrorsRef.current
     });
   };
-  const metrics = makeMetrics(typed, seconds);
+ const metrics = makeMetrics(typed, seconds);
 
-  const finish = (skip = false, finalTyped = typed) => {
-    if (finishedRef.current) return;
-    finishedRef.current = true;
-    setFinished(true);
-    const elapsed = startedAtRef.current !== null ? Math.max(0, (performance.now() - startedAtRef.current) / 1000) : 0;
-    const finalSeconds = Math.max(seconds, elapsed);
-    const finalMetrics = makeMetrics(finalTyped, finalSeconds);
-    if (skip) { onSkip?.(deltaRef.current, finalMetrics, finalSeconds); return; }
-    onDone?.(deltaRef.current, finalMetrics, finalSeconds);
-  };
+const finish = (skip = false, finalTyped = typed) => {
+  if (finishedRef.current) return;
+
+  finishedRef.current = true;
+  setFinished(true);
+
+  const elapsed =
+    startedAtRef.current !== null
+      ? Math.max(
+          0,
+          (performance.now() - startedAtRef.current) / 1000
+        )
+      : 0;
+
+  const finalSeconds = Math.max(seconds, elapsed);
+  const finalMetrics = makeMetrics(finalTyped, finalSeconds);
+
+  // Analyze session with Typing Intelligence Engine
+  const intelligenceAnalysis = analyzeTypingSession(
+    intelligenceKeystrokesRef.current,
+    {
+      wpm: finalMetrics.wpm,
+      accuracy: finalMetrics.accuracy,
+      errors: finalMetrics.errors,
+      duration: finalSeconds,
+      typedLength: finalTyped.length
+    },
+    []
+  );
+
+  if (skip) {
+    onSkip?.(
+      deltaRef.current,
+      finalMetrics,
+      finalSeconds,
+      intelligenceAnalysis
+    );
+    return;
+  }
+
+  onDone?.(
+    deltaRef.current,
+    finalMetrics,
+    finalSeconds,
+    intelligenceAnalysis
+  );
+};
 const onChange = e => {
   if (finishedRef.current) return;
 
-  if (e.target.value.length > typed.length) {
-    if (keySound) {
-      playKeySound(
-        e.target.value[e.target.value.length - 1] || "",
-        keySoundVolume
+  const raw = e.target.value;
+
+  // Keep the exercise linear.
+  if (!isLinearEdit(typed, raw)) {
+    e.target.value = typed;
+    e.target.setSelectionRange(
+      typed.length,
+      typed.length
+    );
+    return;
+  }
+
+  const value = raw.slice(0, text.length);
+  const now = performance.now();
+
+  if (!started && value.length) {
+    startedAtRef.current = now;
+    setStarted(true);
+  }
+
+  // Capture newly typed characters
+  if (value.length > typed.length) {
+    for (
+      let index = typed.length;
+      index < value.length;
+      index++
+    ) {
+      const expected = text[index];
+      const actual = value[index];
+
+      const sameLetter = matchesCharacter(
+        expected,
+        actual,
+        exactCase
       );
+
+      // Send keystroke data to Typing Intelligence
+      intelligenceKeystrokesRef.current.push({
+        key: actual,
+        expectedKey: expected ?? "",
+        timestamp: performance.now(),
+        correct: sameLetter,
+        position: index,
+        isBackspace: false
+      });
+
+      // Typing sound
+      if (keySound) {
+        playKeySound(
+          actual || "",
+          keySoundVolume
+        );
+      }
+
+      // Existing TypeQuest key statistics
+      const id = expected?.toLowerCase();
+
+      if (!id) continue;
+
+      const old =
+        deltaRef.current[id] || {
+          attempts: 0,
+          errors: 0
+        };
+
+      keystrokesRef.current += 1;
+
+      if (sameLetter) {
+        correctKeystrokesRef.current += 1;
+      } else {
+        cumulativeErrorsRef.current += 1;
+      }
+
+      deltaRef.current[id] = {
+        attempts: old.attempts + 1,
+        errors:
+          old.errors +
+          (sameLetter ? 0 : 1)
+      };
     }
   }
 
-  const raw = e.target.value;
-    // Keep the exercise linear: edits are allowed, but the caret is always forced to the end.
-    // Backspace/Delete lets learners recover from mistakes without moving the target cursor.
-    if (!isLinearEdit(typed, raw)) {
-      e.target.value = typed;
-      e.target.setSelectionRange(typed.length, typed.length);
-      return;
-    }
-    const value = raw.slice(0, text.length);
-    if (!started && value.length) {
-      startedAtRef.current = performance.now();
-      setStarted(true);
-    }
-    if (value.length > typed.length) {
-      for (let index = typed.length; index < value.length; index++) {
-        const expected = text[index];
-        const id = expected?.toLowerCase();
-        if (!id) continue;
-        const old = deltaRef.current[id] || { attempts: 0, errors: 0 };
-        const sameLetter = matchesCharacter(expected, value[index], exactCase);
-        keystrokesRef.current += 1;
-        if (sameLetter) correctKeystrokesRef.current += 1;
-        else cumulativeErrorsRef.current += 1;
-        deltaRef.current[id] = {
-          attempts: old.attempts + 1,
-          errors: old.errors + (sameLetter ? 0 : 1)
-        };
-      }
-    }
-    setTyped(value);
-    if (value.length >= text.length) {
-      finish(false, value);
-    }
-  };
+  // Capture Backspace
+  if (value.length < typed.length) {
+    intelligenceKeystrokesRef.current.push({
+      key: "Backspace",
+      expectedKey: text[value.length] ?? "",
+      timestamp: performance.now(),
+      correct: false,
+      position: value.length,
+      isBackspace: true
+    });
+  }
+
+  setTyped(value);
+
+  if (value.length >= text.length) {
+    finish(false, value);
+  }
+};
 
   const targetText = text.split("");
   return <div className="practice">
@@ -1071,8 +1171,211 @@ const onChange = e => {
   </div>;
 }
 
-function Results({ level, data, onNext, onReplay, onMap }) { const a = data.attempts[0] || {}, pass = a.stars > 0; const improvement = a.previousBestWpm ? a.wpm - a.previousBestWpm : 0; const accuracyImprovement = a.accuracy - (a.previousBestAccuracy || 0); return <div className="result"><div className="resultBadge">{pass ? "✓" : "↺"}</div><StageIndicator current="Results"/><p className="eyebrow">{pass ? "LEVEL CLEARED" : "KEEP PRACTICING"}</p><h1>{pass ? `Level ${level.id} complete.` : "Almost there."}</h1><p className="muted">{pass ? `You earned ${a.xp} XP and ${a.stars} star${a.stars === 1 ? "" : "s"}.` : `${a.skipped ? "Challenge skipped." : `You need at least ${level.minAccuracy}% accuracy to clear this level.`} No XP is awarded for a failed attempt.`}</p><div className="resultGrid"><Metric label="WPM" value={a.wpm} icon="⚡"/><Metric label="Accuracy" value={`${a.accuracy}%`} icon="◎"/><Metric label="Errors" value={a.errors} icon="×"/><Metric label="Stars" value={a.stars} icon="★"/></div><div className={`improvement ${improvement > 0 || accuracyImprovement > 0 ? "up" : improvement < 0 || accuracyImprovement < 0 ? "down" : "flat"}`}><b>{improvement > 0 ? `↑ ${improvement} WPM improvement` : improvement < 0 ? `↓ ${Math.abs(improvement)} WPM from previous best` : a.previousBestWpm ? "→ Matched your previous WPM best" : "First recorded attempt"}</b><small>{a.previousBestWpm ? `Previous: ${a.previousBestWpm} WPM • ${a.previousBestAccuracy || 0}% accuracy` : "Your next attempt will have a baseline."}</small>{a.previousBestAccuracy > 0 && <small>{accuracyImprovement > 0 ? `↑ ${accuracyImprovement.toFixed(1)} percentage points accuracy improvement` : accuracyImprovement < 0 ? `↓ ${Math.abs(accuracyImprovement).toFixed(1)} percentage points accuracy` : "→ Accuracy matched previous best"}</small>}</div><div className="resultActions"><button className="ghost bigBtn" onClick={onReplay}>Try again</button><button className="primary bigBtn" onClick={onNext}>{pass && level.id < 50 ? "Next level →" : "Back to map →"}</button></div></div>; }
+function Results({ level, data, onNext, onReplay, onMap, onAdaptiveDrill }) {
+  const a = data.attempts[0] || {};
+  const pass = a.stars > 0;
 
+  const improvement = a.previousBestWpm
+    ? a.wpm - a.previousBestWpm
+    : 0;
+
+  const accuracyImprovement =
+    a.accuracy - (a.previousBestAccuracy || 0);
+
+  // Typing Intelligence data
+  const intelligence = a.intelligence || null;
+  const fingerprint = intelligence?.fingerprint || {};
+  const recommendation = intelligence?.recommendation || null;
+  const adaptiveDrill = intelligence
+  ? generateAdaptiveDrill(intelligence, {
+      targetLength: 180
+    })
+  : null;
+
+  return (
+    <div className="result">
+      <div className="resultBadge">
+        {pass ? "✓" : "↺"}
+      </div>
+
+      <StageIndicator current="Results" />
+
+      <p className="eyebrow">
+        {pass ? "LEVEL CLEARED" : "KEEP PRACTICING"}
+      </p>
+
+      <h1>
+        {pass
+          ? `Level ${level.id} complete.`
+          : "Almost there."}
+      </h1>
+
+      <p className="muted">
+        {pass
+          ? `You earned ${a.xp} XP and ${a.stars} star${
+              a.stars === 1 ? "" : "s"
+            }.`
+          : `${
+              a.skipped
+                ? "Challenge skipped."
+                : `You need at least ${level.minAccuracy}% accuracy to clear this level.`
+            } No XP is awarded for a failed attempt.`}
+      </p>
+
+      <div className="resultGrid">
+        <Metric label="WPM" value={a.wpm} icon="⚡" />
+        <Metric
+          label="Accuracy"
+          value={`${a.accuracy}%`}
+          icon="◎"
+        />
+        <Metric label="Errors" value={a.errors} icon="×" />
+        <Metric label="Stars" value={a.stars} icon="★" />
+      </div>
+
+      {intelligence && (
+        <div className="card">
+          <p className="eyebrow">
+            TYPING INTELLIGENCE
+          </p>
+
+          <h2>Your Typing Fingerprint</h2>
+
+          <div className="resultGrid">
+            <Metric
+              label="Speed"
+              value={`${Math.round(fingerprint.speed ?? 0)}/100`}
+              icon="⚡"
+            />
+
+            <Metric
+              label="Consistency"
+              value={`${Math.round(fingerprint.consistency ?? 0)}/100`}
+              icon="≈"
+            />
+
+            <Metric
+              label="Key Control"
+              value={`${Math.round(fingerprint.keyControl ?? 0)}/100`}
+              icon="⌨"
+            />
+
+            <Metric
+              label="Recovery"
+              value={`${Math.round(fingerprint.recovery ?? 0)}/100`}
+              icon="↺"
+            />
+          </div>
+
+          {fingerprint.style && (
+            <p className="muted">
+              Typing style: <b>{fingerprint.style}</b>
+            </p>
+          )}
+
+          {intelligence.weakKeys?.length > 0 && (
+            <p className="muted">
+              Weak keys:{" "}
+              <b>
+                {intelligence.weakKeys
+                  .slice(0, 5)
+                  .map(item =>
+                    typeof item === "string"
+                      ? item
+                      : item.key
+                  )
+                  .join(", ")}
+              </b>
+            </p>
+          )}
+
+          {recommendation && (
+            <p className="muted">
+              Recommended training:{" "}
+              <b>
+                {recommendation.type
+                  ?.replaceAll("_", " ")
+                  .toLowerCase()}
+              </b>
+            </p>
+          )}
+          {adaptiveDrill && (
+  <button
+    className="primary"
+    onClick={() => onAdaptiveDrill?.(adaptiveDrill)}
+  >
+    Start Personalized Drill →
+  </button>
+)}
+        </div>
+      )}
+
+      <div
+        className={`improvement ${
+          improvement > 0 || accuracyImprovement > 0
+            ? "up"
+            : improvement < 0 || accuracyImprovement < 0
+            ? "down"
+            : "flat"
+        }`}
+      >
+        <b>
+          {improvement > 0
+            ? `↑ ${improvement} WPM improvement`
+            : improvement < 0
+            ? `↓ ${Math.abs(
+                improvement
+              )} WPM from previous best`
+            : a.previousBestWpm
+            ? "→ Matched your previous WPM best"
+            : "First recorded attempt"}
+        </b>
+
+        <small>
+          {a.previousBestWpm
+            ? `Previous: ${a.previousBestWpm} WPM • ${
+                a.previousBestAccuracy || 0
+              }% accuracy`
+            : "Your next attempt will have a baseline."}
+        </small>
+
+        {a.previousBestAccuracy > 0 && (
+          <small>
+            {accuracyImprovement > 0
+              ? `↑ ${accuracyImprovement.toFixed(
+                  1
+                )} percentage points accuracy improvement`
+              : accuracyImprovement < 0
+              ? `↓ ${Math.abs(
+                  accuracyImprovement
+                ).toFixed(
+                  1
+                )} percentage points accuracy`
+              : "→ Accuracy matched previous best"}
+          </small>
+        )}
+      </div>
+
+      <div className="resultActions">
+        <button
+          className="ghost bigBtn"
+          onClick={onReplay}
+        >
+          Try again
+        </button>
+
+        <button
+          className="primary bigBtn"
+          onClick={onNext}
+        >
+          {pass && level.id < 50
+            ? "Next level →"
+            : "Back to map →"}
+        </button>
+      </div>
+    </div>
+  );
+}
 function History({ data }) {
   const [page,setPage]=useState(0),[filter,setFilter]=useState('all');
   const rows=data.attempts.filter(a=>filter==='all'||(filter==='passed'?a.stars>0:a.stars===0));
