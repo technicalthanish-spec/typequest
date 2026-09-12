@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { dbGet, dbSet, dbClear } from "./lib/db";
 import { calcMetrics, matchesCharacter, isLinearEdit } from "./lib/typing";
 import { LEVELS } from "./data/levels";
+import { playKeySound } from "./lib/keySound";
 import { supabase, isCloudConfigured } from "./lib/supabase";
 import Keyboard from "./components/Keyboard";
 import ProgressReport from "./components/ProgressReport";
