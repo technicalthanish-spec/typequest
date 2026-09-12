@@ -1,6 +1,6 @@
 let audioContext = null;
 
-export function playKeySound() {
+export function playKeySound(key = "") {
   try {
     const AudioContext =
       window.AudioContext || window.webkitAudioContext;
@@ -14,57 +14,104 @@ export function playKeySound() {
     const ctx = audioContext;
     const now = ctx.currentTime;
 
-    // Short low "thock"
+    // Same key = same pleasant tone
+    let code = 0;
+
+    for (let i = 0; i < key.length; i++) {
+      code += key.charCodeAt(i);
+    }
+
+    const variation = code % 45;
+
+    let frequency = 145 + variation;
+
+    if (key === " ") {
+      frequency = 105;
+    }
+
+    if (key === "Enter") {
+      frequency = 125;
+    }
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
+    // Softer than square wave
     osc.type = "sine";
+
     osc.frequency.setValueAtTime(
-      135 + Math.random() * 25,
+      frequency,
       now
     );
 
     osc.frequency.exponentialRampToValueAtTime(
-      75,
-      now + 0.045
+      frequency * 0.72,
+      now + 0.055
     );
 
-    gain.gain.setValueAtTime(0.39, now);
+    gain.gain.setValueAtTime(
+      0.32,
+      now
+    );
+
     gain.gain.exponentialRampToValueAtTime(
       0.001,
-      now + 0.055
+      now + 0.07
     );
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.06);
+    osc.stop(now + 0.075);
 
-    // Tiny high-frequency key switch click
+    // Soft mechanical click layer
+    const bufferLength =
+      Math.floor(ctx.sampleRate * 0.009);
+
     const buffer = ctx.createBuffer(
       1,
-      Math.floor(ctx.sampleRate * 0.012),
+      bufferLength,
       ctx.sampleRate
     );
 
-    const data = buffer.getChannelData(0);
+    const data =
+      buffer.getChannelData(0);
 
     for (let i = 0; i < data.length; i++) {
-      data[i] = (Math.random() * 2 - 1) *
-        (1 - i / data.length);
+      const fade =
+        1 - i / data.length;
+
+      data[i] =
+        (Math.random() * 2 - 1) *
+        fade *
+        0.7;
     }
 
-    const noise = ctx.createBufferSource();
-    const noiseGain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
+    const noise =
+      ctx.createBufferSource();
+
+    const noiseGain =
+      ctx.createGain();
+
+    const filter =
+      ctx.createBiquadFilter();
 
     noise.buffer = buffer;
 
-    filter.type = "highpass";
-    filter.frequency.value = 1800;
+    filter.type = "bandpass";
 
-    noiseGain.gain.setValueAtTime(0.25, now);
+    // Slightly different click for every key
+    filter.frequency.value =
+      1300 + variation * 12;
+
+    filter.Q.value = 0.8;
+
+    noiseGain.gain.setValueAtTime(
+      0.18,
+      now
+    );
+
     noiseGain.gain.exponentialRampToValueAtTime(
       0.001,
       now + 0.012
@@ -75,5 +122,6 @@ export function playKeySound() {
     noiseGain.connect(ctx.destination);
 
     noise.start(now);
+
   } catch {}
 }
