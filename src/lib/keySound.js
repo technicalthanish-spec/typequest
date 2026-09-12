@@ -11,22 +11,69 @@ export function playKeySound() {
       audioContext = new AudioContext();
     }
 
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
+    const ctx = audioContext;
+    const now = ctx.currentTime;
 
-    oscillator.type = "square";
-    oscillator.frequency.value = 220 + Math.random() * 60;
+    // Short low "thock"
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-    gain.gain.setValueAtTime(0.9, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      audioContext.currentTime + 0.035
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(
+      135 + Math.random() * 25,
+      now
     );
 
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
+    osc.frequency.exponentialRampToValueAtTime(
+      75,
+      now + 0.045
+    );
 
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.035);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      now + 0.055
+    );
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.06);
+
+    // Tiny high-frequency key switch click
+    const buffer = ctx.createBuffer(
+      1,
+      Math.floor(ctx.sampleRate * 0.012),
+      ctx.sampleRate
+    );
+
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) *
+        (1 - i / data.length);
+    }
+
+    const noise = ctx.createBufferSource();
+    const noiseGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    noise.buffer = buffer;
+
+    filter.type = "highpass";
+    filter.frequency.value = 1800;
+
+    noiseGain.gain.setValueAtTime(0.045, now);
+    noiseGain.gain.exponentialRampToValueAtTime(
+      0.001,
+      now + 0.012
+    );
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    noise.start(now);
   } catch {}
 }
