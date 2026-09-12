@@ -818,15 +818,19 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
     if (skip) { onSkip?.(deltaRef.current, finalMetrics, finalSeconds); return; }
     onDone?.(deltaRef.current, finalMetrics, finalSeconds);
   };
+const onChange = e => {
+  if (finishedRef.current) return;
 
-  const onChange = e => {
-    if (finishedRef.current) return;
-    if (e.target.value.length > typed.length) {
- playKeySound(
-  e.target.value[e.target.value.length - 1] || ""
-);
-}
-    const raw = e.target.value;
+  if (e.target.value.length > typed.length) {
+    if (keySound) {
+      playKeySound(
+        e.target.value[e.target.value.length - 1] || "",
+        keySoundVolume
+      );
+    }
+  }
+
+  const raw = e.target.value;
     // Keep the exercise linear: edits are allowed, but the caret is always forced to the end.
     // Backspace/Delete lets learners recover from mistakes without moving the target cursor.
     if (!isLinearEdit(typed, raw)) {
