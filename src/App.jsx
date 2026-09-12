@@ -821,7 +821,9 @@ function TypingStage({ level, stage, text, graded = false, exactCase = false, on
   const onChange = e => {
     if (finishedRef.current) return;
     if (e.target.value.length > typed.length) {
-  playKeySound();
+ playKeySound(
+  e.target.value[e.target.value.length - 1] || ""
+);
 }
     const raw = e.target.value;
     // Keep the exercise linear: edits are allowed, but the caret is always forced to the end.
