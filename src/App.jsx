@@ -669,18 +669,20 @@ useEffect(() => {
       </p>
 
       <button
-        className="primary full"
-        onClick={() => {
-          localStorage.setItem(
-            "typequest-version",
-            latestVersion
-          );
+  className="primary full"
+  onClick={() => {
+    localStorage.setItem(
+      "typequest-version",
+      latestVersion
+    );
 
-          window.location.reload();
-        }}
-      >
-        Update Now
-      </button>
+    window.location.replace(
+      `${window.location.pathname}?update=${Date.now()}`
+    );
+  }}
+>
+  Update Now
+</button>
 
       <button
         className="ghost full"
