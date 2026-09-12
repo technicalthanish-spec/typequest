@@ -23,7 +23,10 @@ const DEFAULT = {
   streak: 0,
   lastPractice: null,
   dailyMinutes: {},
-  settings: { theme: "dark" },
+  settings: {
+  theme: "dark",
+  keySound: true
+},
   achievements: [],
   firstGuideSeen: false,
   keyStats: {}
