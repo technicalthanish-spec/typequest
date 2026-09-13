@@ -585,7 +585,7 @@ const showLevelGuide =
   view === "warmup" &&
   selected >= 1 &&
   selected <= 20 &&
-  
+    !data.settings?.beginnerTipsDisabled &&
   !seenLevelTips.includes(selected);
 
 const completeLevelGuide = () => {
@@ -858,7 +858,21 @@ const completedCount = Object.keys(data.completed).length;
       })
     }
   />
-</section><section className="card"><h2>Daily practice goal</h2><label htmlFor="daily-goal">Minutes per day</label><select id="daily-goal" value={data.settings.dailyGoal || 10} onChange={e=>setData({...data,settings:{...data.settings,dailyGoal:Number(e.target.value)}})}>{[5,10,15,20,30].map(n=><option key={n} value={n}>{n} minutes</option>)}</select><button className="ghost" onClick={()=>{setSurpriseClosed(false);setData({...data,settings:{...data.settings,welcomeSeen:false}});}}>Read welcome message again</button></section><section className="card"><h2>Your data</h2>{cloudUser && <button className="ghost" onClick={async()=>{try{const backup=await dbGet(`conflict-backup:${cloudUser.id}`);if(!backup){alert('No retained conflict backup on this device.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='typequest-conflict-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){setCloudError(e.message);}}}>Download retained conflict backup</button>}<p className="muted">Export a backup before replacing or resetting progress.</p><button className="primary" onClick={()=>setShowBackup(true)}>Backup and restore</button><button className="ghost danger" onClick={resetAll}>Reset progress</button></section></div>}
+</section><section className="card"><h2>Daily practice goal</h2><label htmlFor="daily-goal">Minutes per day</label><select id="daily-goal" value={data.settings.dailyGoal || 10} onChange={e=>setData({...data,settings:{...data.settings,dailyGoal:Number(e.target.value)}})}>{[5,10,15,20,30].map(n=><option key={n} value={n}>{n} minutes</option>)}</select><button className="ghost" onClick={()=>{setSurpriseClosed(false);setData({...data,settings:{...data.settings,welcomeSeen:false}});}}>Read welcome message again</button><button
+  className="ghost"
+  onClick={() =>
+    setData(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        beginnerTipsDisabled: false,
+        seenLevelTips: []
+      }
+    }))
+  }
+>
+  Replay beginner guides
+</button></section><section className="card"><h2>Your data</h2>{cloudUser && <button className="ghost" onClick={async()=>{try{const backup=await dbGet(`conflict-backup:${cloudUser.id}`);if(!backup){alert('No retained conflict backup on this device.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='typequest-conflict-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){setCloudError(e.message);}}}>Download retained conflict backup</button>}<p className="muted">Export a backup before replacing or resetting progress.</p><button className="primary" onClick={()=>setShowBackup(true)}>Backup and restore</button><button className="ghost danger" onClick={resetAll}>Reset progress</button></section></div>}
         {cloudError && <div className="card errorText" role="alert">{cloudError.includes('SYNC_CONFLICT') ? 'Another device has newer progress. Your local version is preserved. Export a backup, then load the cloud version to continue.' : 'Your progress is on this device, but the cloud save needs attention.'} <button className="ghost" onClick={()=>{if(cloudUser)hydrateAccount(cloudUser).catch(e=>setCloudError(e.message));}}>Retry save</button><button className="ghost" onClick={()=>setShowBackup(true)}>Export backup</button>{cloudError.includes('SYNC_CONFLICT') && <button className="ghost" onClick={async()=>{try {const cloud=await loadCloudData();if(cloud){await dbSet(`conflict-backup:${cloudUser.id}`,data);await dbSet(`pending:${cloudUser.id}`,null);saveQueueRef.current=null;cloudRevisionRef.current=cloud.revision;lastSavedRef.current=JSON.stringify(cloud.state);setCloudError('');setSyncStatus('saved');setData(cloud.state);await dbSet(`state:${cloudUser.id}`,cloud.state);}} catch(e){setCloudError(e.message);}}}>Use cloud version</button>}</div>}
         {view === "dashboard" && <AdventureHome data={data} onStart={startLevel} onMap={() => setView("map")} onCoach={() => setView("coach")} onTheme={questPalette=>setData(prev=>({...prev,settings:{...prev.settings,questPalette}}))} />}
         {view === "map" && <AdventureMap data={data} onStart={startLevel} />}
