@@ -90,8 +90,24 @@ function normalizeData(d) {
     const errors = Math.floor(clampNumber(a.errors, 0, 999999));
     const seconds = clampNumber(a.seconds, 0, 86400);
     const date = typeof a.date === "string" && !Number.isNaN(Date.parse(a.date)) ? a.date : new Date().toISOString();
-    return { id: String(a.id || `${Date.now()}-${Math.random()}`), level, wpm, accuracy, errors, seconds, stars, xp: clampNumber(a.xp, 0, 100000), date, previousBestWpm: clampNumber(a.previousBestWpm, 0, 999), previousBestAccuracy: clampNumber(a.previousBestAccuracy, 0, 100), skipped: Boolean(a.skipped) };
-  }).filter(Boolean).slice(0, 500) : [];
+return {
+  id: String(a.id || `${Date.now()}-${Math.random()}`),
+  level,
+  wpm,
+  accuracy,
+  errors,
+  seconds,
+  stars,
+  xp: clampNumber(a.xp, 0, 100000),
+  date,
+  previousBestWpm: clampNumber(a.previousBestWpm, 0, 999),
+  previousBestAccuracy: clampNumber(a.previousBestAccuracy, 0, 100),
+  skipped: Boolean(a.skipped),
+  intelligence:
+    a.intelligence && typeof a.intelligence === "object"
+      ? a.intelligence
+      : null
+};  }).filter(Boolean).slice(0, 500) : [];
   const keyStatsSrc = src.keyStats && typeof src.keyStats === "object" ? src.keyStats : {};
   const keyStats = {};
   for (const [key, value] of Object.entries(keyStatsSrc)) {
@@ -206,6 +222,7 @@ function TypeQuestApp() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
 const [latestVersion, setLatestVersion] = useState("");
   const [selected, setSelected] = useState(1);
+  const [adaptiveDrill, setAdaptiveDrill] = useState(null);
   const [boot, setBoot] = useState(true);
   const [storageError, setStorageError] = useState("");
   const [showBackup, setShowBackup] = useState(false);
@@ -794,8 +811,15 @@ useEffect(() => {
   exactCase={level.id >= 11}
   graded
   keySound={data.settings.keySound !== false}
-  keySoundVolume={data.settings.keySoundVolume ?? 0.8}
- onDone={(delta, metrics, seconds, intelligenceAnalysis) => {
+keySoundVolume={data.settings.keySoundVolume ?? 0.8}
+previousSessions={
+  data.attempts
+    .filter(a => a.intelligence)
+    .slice(0, 5)
+    .reverse()
+    .map(a => a.intelligence)
+}                     
+onDone={(delta, metrics, seconds, intelligenceAnalysis) => {
     addKeyStats(delta);
     finishLevel({
   ...metrics,
@@ -815,7 +839,44 @@ useEffect(() => {
       skipped: true
     });
   }}
-/>}        {view === "results" && <Results level={level} data={data} onNext={() => data.attempts[0]?.stars > 0 && selected < 50 && data.currentLevel > selected ? startLevel(selected + 1) : setView("map")} onReplay={() => setView("challenge")} onMap={() => setView("map")} />}
+/>}        {view === "results" && (
+  <Results
+    level={level}
+    data={data}
+    onNext={() =>
+      data.attempts[0]?.stars > 0 &&
+      selected < 50 &&
+      data.currentLevel > selected
+        ? startLevel(selected + 1)
+        : setView("map")
+    }
+    onReplay={() => setView("challenge")}
+    onMap={() => setView("map")}
+    onAdaptiveDrill={drill => {
+      setAdaptiveDrill(drill);
+      setView("adaptiveDrill");
+    }}
+  />
+)}
+        {view === "adaptiveDrill" && adaptiveDrill && (
+  <TypingStage
+    key={`adaptive-${selected}`}
+    level={level}
+    stage="personalized"
+    text={adaptiveDrill.text}
+    exactCase={false}
+    keySound={data.settings.keySound !== false}
+    keySoundVolume={data.settings.keySoundVolume ?? 0.8}
+    onDone={(delta, metrics, seconds) => {
+      addKeyStats(delta, metrics, seconds);
+      setView("results");
+    }}
+    onSkip={(delta, metrics, seconds) => {
+      addKeyStats(delta, metrics, seconds);
+      setView("results");
+    }}
+  />
+)}
         {view === "history" && <History data={data} />}
         {view === "stats" && <Stats data={data} onDrill={() => setView("weakdrill")} />}
         {view === "guide" && <FingerGuide onStart={() => setView("dashboard")} />}
@@ -959,8 +1020,19 @@ function StageIndicator({ current }) { const stages = ["Learn", "Warm-up", "Prac
 
 function Learn({ level, onStart }) { return <div className="learn"><StageIndicator current="Learn"/><div className="pageTitle"><p className="eyebrow">{level.tier.toUpperCase()} • LEVEL {level.id}</p><h1>{level.title}</h1><p className="muted">{level.objective}</p></div><div className="learnGrid"><div className="card"><span className="lessonIcon">1</span><h3>Learn</h3><p>{level.objective}</p><p className="muted">{level.id<=10?'Rest your fingers on A S D F and J K L ;. Return to the home row after reaching for a key.':level.id<=30?'Use the opposite hand for Shift when typing a capital. For punctuation, practise the movement slowly before adding speed.':'Keep an even rhythm through symbols and longer passages. Slow down at difficult combinations instead of rushing the whole line.'}</p><small>Focus: <b>{level.warmup}</b></small></div><div className="card"><span className="lessonIcon">2</span><h3>Warm-up</h3><p className="practiceText">You will type the warm-up next. Slow and accurate first.</p><small>Short drill • mistakes are tracked</small></div><div className="card"><span className="lessonIcon">3</span><h3>Practice</h3><p className="practiceText">Then build rhythm with a longer practice passage.</p><small>Target: {level.targetWpm} WPM • {level.minAccuracy}% accuracy</small></div></div><div className="challengePreview card"><div><p className="eyebrow">NEXT: WARM-UP</p><h2>Ready to train?</h2><p className="muted">The timer starts on your first key.</p></div><button className="primary" onClick={onStart}>Start warm-up →</button></div></div>; }
 
-function TypingStage({ level, stage, text, graded = false, exactCase = false, onDone, onSkip, standalone = false, keySound = true,
-  keySoundVolume = 0.8, }) {
+function TypingStage({
+  level,
+  stage,
+  text,
+  graded = false,
+  exactCase = false,
+  onDone,
+  onSkip,
+  standalone = false,
+  keySound = true,
+  keySoundVolume = 0.8,
+  previousSessions = [],
+}) {
   const [typed, setTyped] = useState("");
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [textSize, setTextSize] = useState(26);
@@ -1029,7 +1101,7 @@ const finish = (skip = false, finalTyped = typed) => {
       duration: finalSeconds,
       typedLength: finalTyped.length
     },
-    []
+   previousSessions
   );
 
   if (skip) {
@@ -1178,6 +1250,8 @@ function Results({ level, data, onNext, onReplay, onMap, onAdaptiveDrill }) {
   const improvement = a.previousBestWpm
     ? a.wpm - a.previousBestWpm
     : 0;
+  const intelligence = a.intelligence || null;
+const trend = intelligence?.improvement || null;
 
   const accuracyImprovement =
     a.accuracy - (a.previousBestAccuracy || 0);
@@ -1188,8 +1262,8 @@ function Results({ level, data, onNext, onReplay, onMap, onAdaptiveDrill }) {
   const recommendation = intelligence?.recommendation || null;
   const adaptiveDrill = intelligence
   ? generateAdaptiveDrill(intelligence, {
-      targetLength: 180
-    })
+  length: 180
+})
   : null;
 
   return (
@@ -1299,6 +1373,45 @@ function Results({ level, data, onNext, onReplay, onMap, onAdaptiveDrill }) {
               </b>
             </p>
           )}
+          {trend?.available && (
+  <div className="improvement">
+    <h3>Progress Trend</h3>
+
+    <div className="resultGrid">
+      <Metric
+        label="WPM Change"
+        value={`${trend.wpmChange > 0 ? "+" : ""}${trend.wpmChange}`}
+        icon={trend.wpmChange >= 0 ? "↑" : "↓"}
+      />
+
+      <Metric
+        label="Accuracy Change"
+        value={`${trend.accuracyChange > 0 ? "+" : ""}${trend.accuracyChange}%`}
+        icon={trend.accuracyChange >= 0 ? "↑" : "↓"}
+      />
+
+      <Metric
+        label="Consistency"
+        value={`${trend.consistencyChange > 0 ? "+" : ""}${trend.consistencyChange}`}
+        icon={trend.consistencyChange >= 0 ? "↑" : "↓"}
+      />
+    </div>
+
+    {trend.improvingKeys?.length > 0 && (
+      <p className="muted">
+        Improving keys:{" "}
+        <b>{trend.improvingKeys.join(", ").toUpperCase()}</b>
+      </p>
+    )}
+
+    {trend.decliningKeys?.length > 0 && (
+      <p className="muted">
+        Needs attention:{" "}
+        <b>{trend.decliningKeys.join(", ").toUpperCase()}</b>
+      </p>
+    )}
+  </div>
+)}
           {adaptiveDrill && (
   <button
     className="primary"
