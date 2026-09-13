@@ -578,9 +578,10 @@ useEffect(() => {
       const nextLevel = Math.max(prev.currentLevel, id < 50 && passed ? id + 1 : id);
       const day = todayKey();
       const oldDay = prev.lastPractice;
+      const hasTypingActivity = result.seconds > 0 && ((result.correct || 0) + (result.errors || 0) > 0);
       let streak = prev.streak || 0;
-      if (oldDay !== day) streak = oldDay && dateDiff(oldDay, day) === 1 ? streak + 1 : 1;
-      const minutes = (prev.dailyMinutes?.[day] || 0) + (result.seconds > 0 ? Math.max(0, result.seconds / 60) : 0);
+      if (hasTypingActivity && oldDay !== day) streak = oldDay && dateDiff(oldDay, day) === 1 ? streak + 1 : 1;
+      const minutes = (prev.dailyMinutes?.[day] || 0) + (hasTypingActivity ? Math.max(0, result.seconds / 60) : 0);
       const previousBestAccuracy = prev.completed[id]?.bestAccuracy || 0;
       const awardedXp = passed && firstClear ? result.xp : 0;
       const attempt = {
@@ -599,8 +600,8 @@ useEffect(() => {
         attempts: [attempt, ...prev.attempts].slice(0, 500),
         bestWpm: passed ? Math.max(prev.bestWpm, result.wpm) : prev.bestWpm,
         bestAccuracy: passed ? Math.max(prev.bestAccuracy, result.accuracy) : prev.bestAccuracy,
-        streak, lastPractice: day,
-        dailyMinutes: { ...prev.dailyMinutes, [day]: minutes },
+        streak, lastPractice: hasTypingActivity ? day : prev.lastPractice,
+        dailyMinutes: hasTypingActivity ? { ...prev.dailyMinutes, [day]: minutes } : prev.dailyMinutes,
         achievements: [...achievements]
       };
     });
@@ -895,10 +896,11 @@ function Login({ configured, busy, error, onCloudAuth, onLocalLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [resetError, setResetError] = useState("");
   const [showPassword,setShowPassword]=useState(false);
   const [resetBusy,setResetBusy]=useState(false);
   const submit = async e => {
-    e?.preventDefault(); setMessage("");
+    e?.preventDefault(); setMessage(""); setResetError("");
     if (!configured) {
       onLocalLogin(name.trim() || "Player");
       return;
@@ -912,10 +914,10 @@ function Login({ configured, busy, error, onCloudAuth, onLocalLogin }) {
     {configured ? <form onSubmit={submit}>
       {mode === "signup" && <input autoFocus value={name} onChange={e => setName(e.target.value)} aria-label="Your name" placeholder="Your name" maxLength={24}/>}
       <label>Email address<input autoFocus={mode === "login"} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" autoComplete="email"/></label>
-      <label>Password<input type={showPassword?"text":"password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (6+ characters)" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={6}/></label><label className="showPassword"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/> Show password</label>{error && <p className="errorText">{error}</p>}{message && <p className="successText">{message}</p>}
+      <label>Password<input type={showPassword?"text":"password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (6+ characters)" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={6}/></label><label className="showPassword"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/> Show password</label>{error && <p className="errorText">{error}</p>}{resetError && <p className="errorText">{resetError}</p>}{message && <p className="successText">{message}</p>}
       <button className="primary full" disabled={busy || !email || password.length < 6}>{busy ? "Please wait…" : mode === "login" ? "Log in →" : "Create account →"}</button>
-      <button type="button" className="textbtn full" disabled={resetBusy || !email} onClick={async()=>{setResetBusy(true);setMessage('');try {const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:window.location.origin});if(error)throw error;setMessage('If this account exists, a password reset link has been sent. Check your inbox.');}catch(e){setMessage(e.message || 'Could not send reset email. Try again.');}finally{setResetBusy(false);}}}>{resetBusy?'Sending…':'Forgot password?'}</button>
-      <button type="button" className="textbtn full" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }}>{mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}</button>
+      <button type="button" className="textbtn full" disabled={resetBusy || !email} onClick={async()=>{setResetBusy(true);setMessage('');setResetError('');try {const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:window.location.origin});if(error)throw error;setMessage('If this account exists, a password reset link has been sent. Check your inbox.');}catch(e){setResetError(e.message || 'Could not send reset email. Try again.');}finally{setResetBusy(false);}}}>{resetBusy?'Sending…':'Forgot password?'}</button>
+      <button type="button" className="textbtn full" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); setResetError(""); }}>{mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}</button>
     </form> : <><input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Enter your name" maxLength={24}/><button className="primary full" disabled={!name.trim()} onClick={() => onLocalLogin(name.trim())}>Start local profile →</button></>}
   </div></div>;
 }
@@ -1063,7 +1065,7 @@ function TypingStage({
     return () => clearInterval(t);
   }, [started, finished]);
 
-  const stageTitle = stage === "warmup" ? "Warm-up" : stage === "practice" ? "Practice" : "Challenge";
+  const stageTitle = stage === "warmup" ? "Warm-up" : stage === "practice" ? "Practice" : stage === "personalized" ? "Personalized Drill" : "Challenge";
 
   const makeMetrics = (value, elapsed) => {
     return calcMetrics(text, value, elapsed, exactCase, {
@@ -1503,7 +1505,7 @@ function WeakDrill({ data, onBack, onDone }) {
   const [result,setResult]=useState(null);
   const [run,setRun]=useState(0);
   if(result) return <div className="result"><p className="eyebrow">TARGETED PRACTICE COMPLETE</p><h1>Every repetition counts.</h1><div className="resultGrid"><Metric label="WPM" value={result.wpm} icon="⚡"/><Metric label="Accuracy" value={`${result.accuracy}%`} icon="◎"/><Metric label="Errors" value={result.errors} icon="×"/></div><p className="muted">Your keyboard profile and daily practice time have been updated.</p><button className="primary" onClick={()=>{setResult(null);setRun(run+1);}}>Practise again</button><button className="ghost" onClick={onBack}>Back to progress</button></div>;
-  return <TypingStage key={run} level={LEVELS[0]} stage="practice" text={textRef.current} standalone onDone={(delta,metrics,seconds)=>{onDone(delta,metrics,seconds);setResult(metrics);}} onSkip={(delta,metrics,seconds)=>{onDone(delta,metrics,seconds);onBack();}}/>;
+  return <TypingStage key={run} level={LEVELS[0]} stage="practice" text={textRef.current} standalone keySound={data.settings.keySound !== false} keySoundVolume={data.settings.keySoundVolume ?? 0.8} onDone={(delta,metrics,seconds)=>{onDone(delta,metrics,seconds);setResult(metrics);}} onSkip={(delta,metrics,seconds)=>{onDone(delta,metrics,seconds);onBack();}}/>;
 }
 
 function FingerGuide({ onStart }) { const left = [["A","LITTLE"],["S","RING"],["D","MIDDLE"],["F","INDEX"]], right = [["J","INDEX"],["K","MIDDLE"],["L","RING"],[";","LITTLE"]]; return <div className="fingerGuide"><div className="pageTitle"><p className="eyebrow">FINGER GUIDE • QUICK REFERENCE</p><h1>Start with the<br/><span>right hand position.</span></h1><p className="muted">Use this quick reference anytime to check finger placement before practice.</p></div><div className="card handCard"><div className="keyboardMini"><div className="keyRow">{["Q","W","E","R","T","Y","U","I","O","P"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow homeKeys">{["A","S","D","F","G","H","J","K","L",";"].map(k => <span key={k}>{k}</span>)}</div><div className="keyRow">{["Z","X","C","V","B","N","M",",",".","/"].map(k => <span key={k}>{k}</span>)}</div></div><div className="placementGrid"><Placement title="Left hand" keys={left}/><Placement title="Right hand" keys={right}/></div><div className="guideRules"><div><b>F & J are anchors</b><small>Keep your index fingers on the raised bumps.</small></div><div><b>Thumbs → Space</b><small>Use either thumb comfortably.</small></div><div><b>Eyes on the text</b><small>Try not to look down at the keyboard.</small></div></div></div><div className="challengePreview card"><div><p className="eyebrow">QUICK REFERENCE</p><h2>Ready to practice?</h2><p className="muted">Return to your dashboard and start a level whenever you are ready.</p></div><button className="primary" onClick={onStart}>Back to dashboard →</button></div></div>; }
