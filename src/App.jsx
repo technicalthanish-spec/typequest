@@ -575,13 +575,13 @@ if (recovery) {
       </div>
     );
   }
-  const level = LEVELS[selected - 1];
-  const seenLevelTips = data.settings?.seenLevelTips || [];
+ const level = LEVELS[selected - 1];
+
+const seenLevelTips = data.settings?.seenLevelTips || [];
 
 const showLevelGuide =
   view === "warmup" &&
-  selected <= 20 &&
- 
+  selected <= 20;
 
 const completeLevelGuide = () => {
   setData(prev => ({
@@ -607,7 +607,8 @@ const skipAllLevelGuides = () => {
     }
   }));
 };
-  const completedCount = Object.keys(data.completed).length;
+
+const completedCount = Object.keys(data.completed).length;
   const unlocked = id => id <= Math.min(50, data.currentLevel);
 
   const startLevel = id => { if (!unlocked(id)) return; setSelected(id); setView("learn"); };
