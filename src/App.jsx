@@ -1257,7 +1257,7 @@ const trend = intelligence?.improvement || null;
     a.accuracy - (a.previousBestAccuracy || 0);
 
   // Typing Intelligence data
-  const intelligence = a.intelligence || null;
+
   const fingerprint = intelligence?.fingerprint || {};
   const recommendation = intelligence?.recommendation || null;
   const adaptiveDrill = intelligence
