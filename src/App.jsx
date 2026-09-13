@@ -577,7 +577,7 @@ if (recovery) {
   }
  const level = LEVELS[selected - 1];
 
-const seenLevelTips = data.settings?.seenLevelTips || [];
+
 
 const seenLevelTips = data.settings?.seenLevelTips || [];
 
