@@ -14,6 +14,7 @@ import { createSaveQueue } from "./lib/sync";
 import { weakKeys, keyBand } from "./lib/progress";
 import { AdventureHome, AdventureMap } from "./components/Adventure";
 import PersonalCoach from "./components/PersonalCoach";
+import LevelGuide from "./components/LevelGuide";
 
 const DEFAULT = {
   profile: null,
@@ -575,6 +576,38 @@ if (recovery) {
     );
   }
   const level = LEVELS[selected - 1];
+  const seenLevelTips = data.settings?.seenLevelTips || [];
+
+const showLevelGuide =
+  view === "warmup" &&
+  selected <= 20 &&
+  !data.settings?.beginnerTipsDisabled &&
+  !seenLevelTips.includes(selected);
+
+const completeLevelGuide = () => {
+  setData(prev => ({
+    ...prev,
+    settings: {
+      ...prev.settings,
+      seenLevelTips: [
+        ...new Set([
+          ...(prev.settings?.seenLevelTips || []),
+          selected
+        ])
+      ]
+    }
+  }));
+};
+
+const skipAllLevelGuides = () => {
+  setData(prev => ({
+    ...prev,
+    settings: {
+      ...prev.settings,
+      beginnerTipsDisabled: true
+    }
+  }));
+};
   const completedCount = Object.keys(data.completed).length;
   const unlocked = id => id <= Math.min(50, data.currentLevel);
 
@@ -740,9 +773,45 @@ if (recovery) {
     <button className="mobileMenu ghost" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰ Menu</button>
     <main className="shell"><aside aria-label="Main navigation" className={`sidebar ${menuOpen?'menuOpen':''}`}><button className={view === "dashboard" ? "nav active" : "nav"} onClick={() => setView("dashboard")}>⌂ Dashboard</button><button className={view === "map" ? "nav active" : "nav"} onClick={() => setView("map")}>◈ Level Map</button><button className={view === "history" ? "nav active" : "nav"} onClick={() => setView("history")}>◷ History</button><button className={view === "stats" ? "nav active" : "nav"} onClick={() => setView("stats")}>▣ Progress</button><button className={view === "settings" ? "nav active" : "nav"} onClick={() => setView("settings")}>⚙ Settings</button><div className="sidebottom"><button className="nav" onClick={() => setShowBackup(true)}>⇅ Backup</button><button className={view === "guide" ? "nav active" : "nav"} onClick={() => setView("guide")}>⌨ Finger Guide</button>{cloudUser ? <button className="nav" onClick={handleLogout} disabled={cloudBusy}>⇤ Log out</button> : <button className="nav" onClick={() => setData({ ...data, profile: null })}>⇤ Change Name</button>}</div></aside>
       <section className="content" id="main-content" tabIndex={-1} data-palette={data.settings.questPalette || 'forest'}>
-        <div className="questUtility"><span>THE TYPING ADVENTURE</span><button className="ghost" aria-pressed={view==='coach'} onClick={()=>setView('coach')}>✳ My personal coach</button></div>
-        {['warmup','practice','challenge','weakdrill'].includes(view) && <div className="focusTools"><button className="ghost" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode?'Exit focus mode':'Focus mode'}</button><button className="textbtn" onClick={() => setView('dashboard')}>Exit practice</button></div>}
-        {view === 'settings' && <div className="settingsPage"><p className="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><section className="card">
+        <div className="questUtility">
+  <span>THE TYPING ADVENTURE</span>
+  <button
+    className="ghost"
+    aria-pressed={view === 'coach'}
+    onClick={() => setView('coach')}
+  >
+    ✳ My personal coach
+  </button>
+</div>
+
+{['warmup','practice','challenge','weakdrill'].includes(view) && (
+  <div className="focusTools">
+    <button
+      className="ghost"
+      aria-pressed={focusMode}
+      onClick={() => setFocusMode(!focusMode)}
+    >
+      {focusMode ? 'Exit focus mode' : 'Focus mode'}
+    </button>
+
+    <button
+      className="textbtn"
+      onClick={() => setView('dashboard')}
+    >
+      Exit practice
+    </button>
+  </div>
+)}
+
+{showLevelGuide && (
+  <LevelGuide
+    level={selected}
+    onComplete={completeLevelGuide}
+    onSkipAll={skipAllLevelGuides}
+  />
+)}
+
+{view === 'settings' && <div className="settingsPage"><p className="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><section className="card">
   <h2>Typing sound</h2>
 
   <label className="showPassword">
@@ -1251,15 +1320,21 @@ const onChange = e => {
     {!standalone && <StageIndicator current={stageTitle}/>}
     <div className="practiceTop">
       <div><p className="eyebrow">{standalone ? "PERSONALISED PRACTICE" : `LEVEL ${level.id} • ${level.tier}`}</p><h1>{standalone ? "Train your weak keys" : stageTitle}</h1><p className="muted">{stage === "warmup" ? "Find accuracy and finger control." : stage === "practice" ? "Build rhythm before the graded challenge." : "Type the exact passage to clear the level."}</p></div>
-      <div className="liveStats"><b>{formatTime(seconds)}</b><span>{metrics.wpm} WPM</span><span>{started ? `${metrics.accuracy}%` : "—"} ACC</span><span>{metrics.errors} ERR</span></div>
+    <div id="tour-typing-stats" className="liveStats"><b>{formatTime(seconds)}</b><span>{metrics.wpm} WPM</span><span>{started ? `${metrics.accuracy}%` : "—"} ACC</span><span>{metrics.errors} ERR</span></div>
     </div>
     <div className="typingOptions"><label><input type="checkbox" checked={showKeyboard} onChange={e=>setShowKeyboard(e.target.checked)}/> Keyboard guide</label><label>Text size <select value={textSize} onChange={e=>setTextSize(Number(e.target.value))}><option value={22}>Small</option><option value={26}>Medium</option><option value={32}>Large</option></select></label></div>
     <div className="card typingCard">
-      <div className="target" style={{fontSize:textSize}}>{targetText.map((ch, i) => <span key={i} className={i < typed.length ? (matchesCharacter(ch, typed[i], exactCase) ? "correct" : "wrong") : (i === typed.length ? "cursor" : "")}>{ch === " " ? " " : ch}</span>)}</div>
-      <label className="inputLabel">Type the passage here<textarea aria-label={`${stageTitle} typing input`} ref={inputRef} value={typed} onChange={onChange} onKeyDown={e => { if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key)) e.preventDefault(); }} onFocus={e => { e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length); }} onPaste={e => e.preventDefault()} onDrop={e => e.preventDefault()} onDragOver={e => e.preventDefault()} spellCheck="false" autoCapitalize="off" autoCorrect="off" placeholder="Start typing here…" disabled={finished}/></label>
-      {showKeyboard && <Keyboard next={text[typed.length]}/> }
+     <div id="tour-target-text" className="target" style={{fontSize:textSize}}>{targetText.map((ch, i) => <span key={i} className={i < typed.length ? (matchesCharacter(ch, typed[i], exactCase) ? "correct" : "wrong") : (i === typed.length ? "cursor" : "")}>{ch === " " ? " " : ch}</span>)}</div>
+      <label className="inputLabel">Type the passage here<textarea
+                                                        id="tour-typing-area"
+  aria-label={`${stageTitle} typing input`} ref={inputRef} value={typed} onChange={onChange} onKeyDown={e => { if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key)) e.preventDefault(); }} onFocus={e => { e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length); }} onPaste={e => e.preventDefault()} onDrop={e => e.preventDefault()} onDragOver={e => e.preventDefault()} spellCheck="false" autoCapitalize="off" autoCorrect="off" placeholder="Start typing here…" disabled={finished}/></label>
+     {showKeyboard && (
+  <div id="tour-keyboard-guide">
+    <Keyboard next={text[typed.length]} />
+  </div>
+)}
       <div className="row between hint"><small>{graded ? `Target ${level.targetWpm} WPM • minimum ${level.minAccuracy}% accuracy` : "Mistakes are tracked to personalize your future drills."}</small><small>{typed.length}/{text.length}</small></div>
-      <div className="stageActions"><button className="ghost" onClick={() => finish(true)}>Skip {graded ? "challenge" : stageTitle.toLowerCase()} →</button>{Object.keys(deltaRef.current).length > 0 && <small>{Object.keys(deltaRef.current).length} key{Object.keys(deltaRef.current).length === 1 ? "" : "s"} tracked</small>}</div>
+      <div id="tour-typing-controls" className="stageActions">  <button className="ghost" onClick={() => finish(true)}>Skip {graded ? "challenge" : stageTitle.toLowerCase()} →</button>{Object.keys(deltaRef.current).length > 0 && <small>{Object.keys(deltaRef.current).length} key{Object.keys(deltaRef.current).length === 1 ? "" : "s"} tracked</small>}</div>
     </div>
   </div>;
 }
