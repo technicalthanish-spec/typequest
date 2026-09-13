@@ -651,7 +651,20 @@ const completedCount = Object.keys(data.completed).length;
       if (id >= 25 && passed) achievements.add("halfway");
       if (id === 50 && passed) achievements.add("master");
       return {
-        ...prev, completed, currentLevel: nextLevel, xp: prev.xp + awardedXp,
+  ...prev,
+  completed,
+  currentLevel: nextLevel,
+  xp: prev.xp + awardedXp,
+
+  settings: {
+    ...prev.settings,
+    seenLevelTips:
+      passed && firstClear && id < 20
+        ? (prev.settings?.seenLevelTips || []).filter(
+            levelId => levelId !== id + 1
+          )
+        : (prev.settings?.seenLevelTips || [])
+  },
         totalStars: Object.values(completed).reduce((sum, x) => sum + (x.stars || 0), 0),
         attempts: [attempt, ...prev.attempts].slice(0, 500),
         bestWpm: passed ? Math.max(prev.bestWpm, result.wpm) : prev.bestWpm,
