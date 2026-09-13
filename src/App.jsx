@@ -585,7 +585,7 @@ const showLevelGuide =
   view === "warmup" &&
   selected >= 1 &&
   selected <= 20 &&
-  !data.settings?.beginnerTipsDisabled &&
+  
   !seenLevelTips.includes(selected);
 
 const completeLevelGuide = () => {
