@@ -579,9 +579,14 @@ if (recovery) {
 
 const seenLevelTips = data.settings?.seenLevelTips || [];
 
+const seenLevelTips = data.settings?.seenLevelTips || [];
+
 const showLevelGuide =
   view === "warmup" &&
-  selected <= 20;
+  selected >= 1 &&
+  selected <= 20 &&
+  !data.settings?.beginnerTipsDisabled &&
+  !seenLevelTips.includes(selected);
 
 const completeLevelGuide = () => {
   setData(prev => ({
