@@ -804,20 +804,11 @@ const completedCount = Object.keys(data.completed).length;
 )}
 
 {showLevelGuide && (
-  <div
-    style={{
-      position: "fixed",
-      top: 20,
-      right: 20,
-      zIndex: 999999,
-      background: "white",
-      color: "black",
-      padding: 20,
-      borderRadius: 12
-    }}
-  >
-    GUIDE TEST — Level {selected}
-  </div>
+  <LevelGuide
+    level={selected}
+    onComplete={completeLevelGuide}
+    onSkipAll={skipAllLevelGuides}
+  />
 )}
 
 {view === 'settings' && <div className="settingsPage"><p className="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><section className="card">
