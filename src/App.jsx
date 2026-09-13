@@ -214,8 +214,9 @@ class AppErrorBoundary extends React.Component {
 function TypeQuestApp() {
   const [surpriseClosed, setSurpriseClosed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [recovery, setRecovery] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('saved');
+const [recovery, setRecovery] = useState(
+  () => new URLSearchParams(window.location.search).get("recovery") === "1"
+);  const [syncStatus, setSyncStatus] = useState('saved');
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState(null);
   const [view, setView] = useState("dashboard");
@@ -455,8 +456,26 @@ useEffect(() => {
     }
   };
 
-  if (recovery) return <Recovery onDone={() => setRecovery(false)} />;
   if (boot) return <div className="boot">Loading your local TypeQuest…</div>;
+
+if (recovery) {
+  return (
+    <Recovery
+      onDone={() => {
+        setRecovery(false);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("recovery");
+
+        window.history.replaceState(
+          {},
+          "",
+          `${url.pathname}${url.search}${url.hash}`
+        );
+      }}
+    />
+  );
+}
   if (storageError) return <StorageError message={storageError} />;
   if (!data) return null;
   if (!data.profile || (isCloudConfigured && !cloudUser)) return <Login configured={isCloudConfigured} busy={cloudBusy} error={cloudError} onCloudAuth={handleCloudAuth} onLocalLogin={name => setData({ ...data, profile: { name, createdAt: new Date().toISOString() }, firstGuideSeen: false })} />;
@@ -916,7 +935,7 @@ function Login({ configured, busy, error, onCloudAuth, onLocalLogin }) {
       <label>Email address<input autoFocus={mode === "login"} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" autoComplete="email"/></label>
       <label>Password<input type={showPassword?"text":"password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (6+ characters)" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={6}/></label><label className="showPassword"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/> Show password</label>{error && <p className="errorText">{error}</p>}{resetError && <p className="errorText">{resetError}</p>}{message && <p className="successText">{message}</p>}
       <button className="primary full" disabled={busy || !email || password.length < 6}>{busy ? "Please wait…" : mode === "login" ? "Log in →" : "Create account →"}</button>
-      <button type="button" className="textbtn full" disabled={resetBusy || !email} onClick={async()=>{setResetBusy(true);setMessage('');setResetError('');try {const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:window.location.origin});if(error)throw error;setMessage('If this account exists, a password reset link has been sent. Check your inbox.');}catch(e){setResetError(e.message || 'Could not send reset email. Try again.');}finally{setResetBusy(false);}}}>{resetBusy?'Sending…':'Forgot password?'}</button>
+      <button type="button" className="textbtn full" disabled={resetBusy || !email} onClick={async()=>{setResetBusy(true);setMessage('');setResetError('');try {const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:`${window.location.origin}/?recovery=1`});if(error)throw error;setMessage('If this account exists, a password reset link has been sent. Check your inbox.');}catch(e){setResetError(e.message || 'Could not send reset email. Try again.');}finally{setResetBusy(false);}}}>{resetBusy?'Sending…':'Forgot password?'}</button>
       <button type="button" className="textbtn full" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); setResetError(""); }}>{mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}</button>
     </form> : <><input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Enter your name" maxLength={24}/><button className="primary full" disabled={!name.trim()} onClick={() => onLocalLogin(name.trim())}>Start local profile →</button></>}
   </div></div>;
