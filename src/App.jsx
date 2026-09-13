@@ -585,7 +585,6 @@ const showLevelGuide =
   view === "warmup" &&
   selected >= 1 &&
   selected <= 20 &&
-    !data.settings?.beginnerTipsDisabled &&
   !seenLevelTips.includes(selected);
 
 const completeLevelGuide = () => {
@@ -608,7 +607,7 @@ const skipAllLevelGuides = () => {
     ...prev,
     settings: {
       ...prev.settings,
-      beginnerTipsDisabled: true
+      seenLevelTips: Array.from({ length: 20 }, (_, i) => i + 1)
     }
   }));
 };
