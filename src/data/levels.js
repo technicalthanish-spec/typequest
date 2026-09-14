@@ -16,9 +16,9 @@ export const LEVELS = [
   "tier": "Basic",
   "title": "Left Hand Control",
   "objective": "Build clean movement across A, S, D and F.",
-  "warmup": "i love anshul",
-  "practice": "anshul is very cute, anshul is very beautiful",
-  "challenge": "thanish loves anshul.",
+  "warmup": "i love Typing ",
+  "practice": "This level is just basic type all rounder level",
+  "challenge": "from next level you will learn properly .",
   "targetWpm": 13.3,
   "minAccuracy": 90,
   "xp": 70
