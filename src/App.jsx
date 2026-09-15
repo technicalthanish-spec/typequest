@@ -530,9 +530,9 @@ if (recovery) {
               color: "#fff",
             }}
           >
-            I love you,
+            PROCEED ,
             <br />
-            meri jaan ❤️
+            $£€
           </h1>
 
           <p
@@ -543,14 +543,9 @@ if (recovery) {
               marginBottom: "30px",
             }}
           >
-            Aaj typing practice se pehle,
-            ek chhoti si baat…
+            $£
             <br />
-            AAP mere liye bhut special ho.
-            Ye surprise sirf apki smile ke liye .
-            but aap app open nhi krte itni 
-            mehnt s bnai manlia coding ni ki 
-            but tym to dia na mene bchuu💗
+            Continue to your typequest
           </p>
 
           <button
