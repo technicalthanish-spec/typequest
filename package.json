@@ -16,5 +16,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "vite": "^6.1.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
   }
 }
