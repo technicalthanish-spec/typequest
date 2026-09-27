@@ -15,7 +15,7 @@ The authenticated `typequest_multiplayer` RPC wraps a private function that
 validates membership, host actions and game transitions under a room row lock.
 Private tables have RLS and no browser-role table grants. The server chooses
 the passage, owns the start/deadline, computes correct characters and WPM, and
-rejects progress after the deadline. Most correct characters wins; accuracy
+rejects typing after the deadline. Most correct characters wins; accuracy
 breaks ties and equal scores share a place. Corrected errors still count.
 
 These are friendly races, not a cheat-proof ranked ladder: attempt/error counts
@@ -31,7 +31,7 @@ Session storage keeps the room per account. Refresh restores acknowledged text
 and errors; brief outages retry automatically. After 30 seconds offline, hosting
 transfers to an active player and stale lobby players are removed. Leaving a race
 marks a withdrawal. Rematches reset readiness and scores. Rooms expire after two
-hours, with expired data cleaned up when a new room is created.
+hours; starting a race or rematch renews that expiry. Expired data is cleaned up when a new room is created. A server lease permits one typing tab per player; another tab is read-only until the writer has been absent for 10 seconds, then restores the acknowledged draft.
 
 ## Verification
 
