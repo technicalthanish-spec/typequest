@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+test('final packets, tab ownership and near-expiry races remain consistent',async t=>{
+ const db=new PGlite();t.after(()=>db.close());
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`);
+ const ids=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002'];
+ for(const id of ids)await db.query('insert into auth.users values ($1)',[id]);
+ await db.exec(await readFile(new URL('../multiplayer.sql',import.meta.url),'utf8'));
+ async function rpc(id,action,code='',payload={}){return db.transaction(async tx=>{await tx.query("select set_config('request.jwt.claim.sub',$1,true)",[id]);await tx.exec('set local role authenticated');return(await tx.query('select public.typequest_multiplayer($1,$2,$3::jsonb) as room',[action,code,JSON.stringify({clientId:'tab-a',...payload})])).rows[0].room;});}
+ let room=await rpc(ids[0],'create','',{duration:30,difficulty:'easy'});const code=room.code;
+ await rpc(ids[1],'join',code);for(const id of ids)await rpc(id,'ready',code,{ready:true});
+ await db.query("update typequest_private.rooms set expires_at=clock_timestamp()+interval '1 second' where code=$1",[code]);
+ room=await rpc(ids[0],'start',code);
+ const expiry=(await db.query('select expires_at from typequest_private.rooms where code=$1',[code])).rows[0].expires_at;
+ assert.ok(Date.parse(expiry)>Date.parse(room.startsAt)+30000+3600000,'start renews expiry beyond race and results');
+ await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '29 seconds' where code=$1",[code]);
+ room=await rpc(ids[0],'sync',code,{round:1,sequence:3,typed:'the',attempts:3,errors:0});
+ assert.equal(room.canType,true);
+ room=await rpc(ids[0],'sync',code,{clientId:'tab-b',round:1,sequence:99,typed:'the sun',attempts:7,errors:0});
+ assert.equal(room.canType,false);assert.equal(room.myText,'the','second tab cannot change score even with a larger sequence');
+ await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '30.2 seconds' where code=$1",[code]);
+ room=await rpc(ids[0],'sync',code);
+ const inputAt=new Date(Date.parse(room.startsAt)+29950).toISOString();
+ room=await rpc(ids[0],'sync',code,{round:1,sequence:7,typed:'the sun',attempts:7,errors:0,inputAt,final:true});
+ assert.equal(room.myText,'the sun','last pre-deadline keys accepted in bounded delivery window');assert.equal(room.phase,'racing','winner is not announced before final delivery window ends');
+ room=await rpc(ids[0],'sync',code,{round:1,sequence:8,typed:'the sun ',attempts:8,errors:0,inputAt,final:true});
+ assert.equal(room.myText,'the sun','final packet locks score against later changes');
+ room=await rpc(ids[1],'sync',code,{round:1,sequence:1,typed:'the',attempts:3,errors:0,inputAt:new Date(Date.parse(room.startsAt)+30100).toISOString()});
+ assert.equal(room.myText,'','post-deadline typing is rejected');
+ await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '34 seconds' where code=$1",[code]);
+ room=await rpc(ids[0],'sync',code);assert.equal(room.phase,'results');assert.equal(room.myText,'the sun');
+ await rpc(ids[0],'rematch',code);for(const id of ids)await rpc(id,'ready',code,{ready:true});await rpc(ids[0],'start',code);
+ await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '2 seconds' where code=$1",[code]);
+ room=await rpc(ids[0],'sync',code,{round:2,sequence:3,typed:'the',attempts:3,errors:0});
+ await db.query("update typequest_private.players set writer_seen_at=clock_timestamp()-interval '11 seconds' where code=$1 and user_id=$2",[code,ids[0]]);
+ room=await rpc(ids[0],'sync',code,{clientId:'tab-b',round:2,sequence:99,typed:'the sun',attempts:7,errors:0});
+ assert.equal(room.canType,true);assert.equal(room.myText,'the','takeover restores acknowledged text before accepting new keys');
+ room=await rpc(ids[0],'sync',code,{clientId:'tab-b',round:2,sequence:4,typed:'the ',attempts:4,errors:0});assert.equal(room.myText,'the ');
+ room=await rpc(ids[0],'sync',code,{round:2,sequence:5,typed:'the s',attempts:5,errors:0});assert.equal(room.canType,false);assert.equal(room.myText,'the ');
+ room=await rpc(ids[0],'sync',code,{clientId:'tab-b',round:1,sequence:10,typed:'wrong',attempts:10,errors:5});assert.equal(room.round,2);assert.equal(room.myText,'the ','old-round packets return fresh snapshot');
+});
