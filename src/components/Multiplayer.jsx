@@ -29,6 +29,8 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
   const queue = useRef(Promise.resolve());
   const generation = useRef(0);
   const alive = useRef(true);
+  const [clientId] = useState(() => crypto.randomUUID());
+  const finalRound = useRef(null);
   const clockNow = () => clock.current.server + performance.now() - clock.current.local;
   const timing = raceClock(room, now);
   const me = room?.players.find(p => p.id === user?.id);
@@ -47,7 +49,7 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
     const mine = data.players.find(p => p.id === user.id);
     // Rehydrate after refresh, or when the host opens a new round. Never replace
     // keystrokes made while an earlier progress request was in flight.
-    if (!previous || previous.round !== data.round || previous.code !== data.code) {
+    if (!previous || previous.round !== data.round || previous.code !== data.code || data.canType === false || previous.canType === false && data.canType === true) {
       draft.current = { typed: data.myText || '', attempts: mine?.attempts || 0, errors: mine?.errors || 0, sequence: mine?.sequence || 0 };
       setTyped(draft.current.typed);
     }
@@ -63,10 +65,10 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
     const task = queue.current.catch(() => {}).then(async () => {
       if (epoch !== generation.current || !alive.current) return;
       const started = performance.now();
-      const progress = action === 'sync' && current.current?.phase === 'racing'
-        ? { ...draft.current, round: current.current.round } : {};
+      const progress = action === 'sync' && current.current?.phase === 'racing' && current.current.canType !== false
+        ? { ...draft.current, round: current.current.round, final: clockNow() >= Date.parse(current.current.startsAt) + current.current.duration * 1000 } : {};
       const { data, error: failure } = await client.rpc('typequest_multiplayer', {
-        p_action: action, p_code: roomCode, p_payload: { ...progress, ...payload }
+        p_action: action, p_code: roomCode, p_payload: { ...progress, ...payload, clientId }
       }).abortSignal(AbortSignal.timeout(10000));
       if (epoch !== generation.current || !alive.current) return;
       if (failure) throw failure;
@@ -120,6 +122,13 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
     if (timing.running && visible && connected) input.current?.focus();
   }, [timing.running, visible, connected]);
   useEffect(() => {
+    const key = `${room?.code}:${room?.round}`;
+    if (room?.phase === 'racing' && timing.remaining === 0 && room.canType !== false && finalRound.current !== key) {
+      finalRound.current = key;
+      request('sync', activeCode).catch(e => setError(roomError(e)));
+    }
+  }, [room?.phase, room?.round, room?.code, room?.canType, timing.remaining, activeCode]);
+  useEffect(() => {
     if (visible && marker.current) {
       const box = marker.current.parentElement;
       box.scrollTop = Math.max(0, marker.current.offsetTop - box.offsetTop - 65);
@@ -137,15 +146,16 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
     catch { setNotice(`Copy this code: ${room.code}`); }
   }
   function onType(e) {
-    if (!connected || !raceClock(current.current, clockNow()).running) return;
+    if (!connected || current.current?.canType === false || !raceClock(current.current, clockNow()).running) return;
     const next = recordKey(draft.current, e.target.value, room.passage);
-    draft.current = next; setTyped(next.typed);
+    draft.current = next === draft.current ? next : { ...next, inputAt: new Date(clockNow()).toISOString() }; setTyped(next.typed);
   }
 
   return <div className="mp" hidden={!visible}>
     <header className="mpHeading"><div><p className="eyebrow">TYPEQUEST ARENA · MULTIPLAYER</p><h1>{room ? (room.phase === 'results' ? 'The results are in.' : room.phase === 'lobby' ? 'Your starting line.' : 'Find your rhythm.') : 'Great races start with friends.'}</h1><p className="muted">{room ? `Round ${room.round} · ${MODES[room.difficulty][0]} · ${room.duration} seconds` : 'One room. One passage. A little friendly competition.'}</p></div><span className="mpPill"><i />{room ? connected ? 'Connected' : 'Reconnecting' : '2–8 players'}</span></header>
     {error && <div className="mpMessage mpError" role="alert">{error}</div>}
     {notice && <div className="mpMessage" role="status">{notice}</div>}
+    {room?.phase === 'racing' && room.canType === false && <div className="mpMessage" role="status">Your race is active in another tab or device. Continue there, or close it and wait 10 seconds to resume here.</div>}
     {!available && <div className="mpMessage">Sign in to your online TypeQuest account to race with friends. Multiplayer needs an internet connection.</div>}
     {!room && <>
       <section className="mpHero"><div><span className="mpTag">FRIENDLY RACES, REAL PROGRESS</span><h2>A shared challenge.<br/><em>Your own personal best.</em></h2><p>Create a room, send the code, and meet your friends at the starting line. Everyone gets the same text and the same time.</p><div className="mpFeatures"><span>↗ Live standings</span><span>◎ Accuracy counts</span><span>↻ Instant rematches</span></div></div><div className="mpArt" aria-hidden="true"><span>⌨</span><div className="mpTrack"><i style={{width:'76%'}} /><b>YOU</b></div><div className="mpTrack alt"><i style={{width:'57%'}} /><b>FRIEND</b></div><strong>READY. SET. TYPE.</strong></div></section>
@@ -161,7 +171,7 @@ export default function Multiplayer({ user, name, visible, client = supabase }) 
       {room.phase==='racing' && <>
         <div className="mpRaceMetrics"><div><small>TIME LEFT</small><strong>{timing.remaining}<em>s</em></strong></div><div><small>YOUR SPEED</small><strong>{me?.wpm||0}<em>WPM</em></strong></div><div><small>ACCURACY</small><strong>{me?.accuracy||0}<em>%</em></strong></div><div><small>POSITION</small><strong>{ranked.find(p=>p.id===user.id)?.rank||'—'}<em>/{room.players.length}</em></strong></div></div>
         <section className="card mpTyping"><div className="mpSectionTitle"><h2>{timing.countdown?'Take a breath. Hands on the home row.':timing.remaining?'Eyes on the text. You’ve got this.':'Time’s up. Confirming results…'}</h2><span>CASE SENSITIVE</span></div>
-          {timing.countdown>0?<div className="mpCountdown" role="status"><strong key={timing.countdown}>{timing.countdown}</strong><span>GET READY TO TYPE</span><p>Everyone starts at the same time.</p></div>:<><div className="mpPassage" aria-label="Race passage">{room.passage.slice(0,Math.min(room.passage.length,Math.max(700,typed.length+350))).split('').map((char,i)=><span key={i} ref={i===typed.length?marker:null} className={i<typed.length?(typed[i]===char?'correct':'incorrect'):i===typed.length?'cursor':''}>{char}</span>)}</div><label className="mpInputLabel">Type the passage here<textarea ref={input} value={typed} onChange={onType} disabled={!timing.running||!connected} onPaste={e=>e.preventDefault()} onDrop={e=>e.preventDefault()} onBeforeInput={e=>{if(['insertFromPaste','insertFromDrop','insertReplacementText'].includes(e.nativeEvent.inputType))e.preventDefault();}} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="Start typing when the countdown finishes…" aria-describedby="mp-input-help"/></label><small id="mp-input-help" className="mpHint">Keep typing at the end of the text. Backspace to correct mistakes. Stay online until your results appear.</small></>}
+          {timing.countdown>0?<div className="mpCountdown" role="status"><strong key={timing.countdown}>{timing.countdown}</strong><span>GET READY TO TYPE</span><p>Everyone starts at the same time.</p></div>:<><div className="mpPassage" aria-label="Race passage">{room.passage.slice(0,Math.min(room.passage.length,Math.max(700,typed.length+350))).split('').map((char,i)=><span key={i} ref={i===typed.length?marker:null} className={i<typed.length?(typed[i]===char?'correct':'incorrect'):i===typed.length?'cursor':''}>{char}</span>)}</div><label className="mpInputLabel">Type the passage here<textarea ref={input} value={typed} onChange={onType} disabled={!timing.running||!connected||room.canType===false} onPaste={e=>e.preventDefault()} onDrop={e=>e.preventDefault()} onBeforeInput={e=>{if(['insertFromPaste','insertFromDrop','insertReplacementText'].includes(e.nativeEvent.inputType))e.preventDefault();}} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="Start typing when the countdown finishes…" aria-describedby="mp-input-help"/></label><small id="mp-input-help" className="mpHint">Keep typing at the end of the text. Backspace to correct mistakes. Stay online until your results appear.</small></>}
         </section><Standings players={ranked} userId={user.id}/>
       </>}
       {room.phase==='results' && <><section className="mpResultsHero"><span className="mpTrophy" aria-hidden="true">🏆</span><p className="eyebrow">ROUND {room.round} COMPLETE</p><h2>{ranked[0]?.correct ? ranked.filter(p=>p.rank===1&&!p.left).map(p=>p.name).join(' & ') + (ranked.filter(p=>p.rank===1&&!p.left).length>1?' share the win!':' takes the win!') : 'A warm-up round. Ready for another?'}</h2><p>{ranked[0]?.correct ? 'Every race is another step forward. Nice work showing up.' : 'No correct characters were recorded this round.'}</p><div className="mpResultStats"><span><b>{me?.wpm||0}</b> WPM</span><span><b>{me?.accuracy||0}%</b> accuracy</span><span><b>{me?.correct||0}</b> correct characters</span></div></section><Standings players={ranked} userId={user.id} results/><div className="mpRematch"><div><h2>One more round?</h2><p className="muted">Keep the room, reset the scores, and get ready again.</p></div>{host?<button className="primary" disabled={busy||!connected} onClick={()=>command('rematch')}>Open rematch ↻</button>:<span className="mpPill">Waiting for the host to open a rematch</span>}</div></>}
