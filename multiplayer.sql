@@ -38,6 +38,10 @@ alter table typequest_private.rooms enable row level security;
 alter table typequest_private.players enable row level security;
 revoke all on all tables in schema typequest_private from public, anon, authenticated;
 
+alter table typequest_private.players add column if not exists writer_id text;
+alter table typequest_private.players add column if not exists writer_seen_at timestamptz;
+alter table typequest_private.players add column if not exists finalized boolean not null default false;
+
 -- Definer is needed for atomic, validated game transitions without granting
 -- clients arbitrary table writes. It lives outside the exposed public schema.
 create or replace function typequest_private.multiplayer(p_action text, p_code text, p_payload jsonb)
@@ -55,6 +59,9 @@ declare
   next_sequence integer;
   participants integer;
   snapshot jsonb;
+  tab_id text := left(coalesce(nullif(p_payload->>'clientId',''),'legacy'),64);
+  can_type boolean := false;
+  changed_writer boolean := false;
 begin
   if uid is null then raise exception 'Please sign in to play multiplayer.'; end if;
   if p_action is null or p_action not in ('create','join','sync','ready','start','rematch','leave') then
@@ -105,12 +112,25 @@ begin
     raise exception 'Join this room before playing.';
   end if;
 
-  -- A race expires on the server clock even if every browser was asleep.
-  if r.phase='racing' and stamp >= r.starts_at + make_interval(secs=>r.duration) then
+  -- Allow three seconds for the frozen final packet, never extra typing time.
+  if r.phase='racing' and stamp >= r.starts_at + make_interval(secs=>r.duration+3) then
     update typequest_private.rooms set phase='results' where code=room_code returning * into r;
   end if;
   update typequest_private.players set last_seen=stamp where code=room_code and user_id=uid;
   select * into me from typequest_private.players where code=room_code and user_id=uid;
+
+  if r.phase='racing' then
+    if me.writer_id is null or (me.writer_seen_at < stamp-interval '10 seconds'
+        and stamp < r.starts_at + make_interval(secs=>r.duration)) then
+      changed_writer := me.writer_id is not null;
+      update typequest_private.players set writer_id=tab_id,writer_seen_at=stamp
+        where code=room_code and user_id=uid returning * into me;
+    end if;
+    can_type := me.writer_id=tab_id;
+    if can_type then
+      update typequest_private.players set writer_seen_at=stamp where code=room_code and user_id=uid;
+    end if;
+  end if;
 
   if p_action='leave' then
     update typequest_private.players set left_room=true, ready=false where code=room_code and user_id=uid;
@@ -145,7 +165,7 @@ begin
       if exists(select 1 from typequest_private.players where code=room_code and (not ready or last_seen < stamp-interval '8 seconds')) then
         raise exception 'Wait for every player to be connected and ready.';
       end if;
-      update typequest_private.rooms set phase='racing',starts_at=stamp+interval '5 seconds',
+      update typequest_private.rooms set phase='racing',starts_at=stamp+interval '5 seconds',expires_at=stamp+interval '2 hours',
         passage=repeat(case difficulty
           when 'easy' then 'the sun is warm and the sky is blue we take a walk by the lake and watch the birds fly home a small step each day can help us grow keep your hands calm and find your own pace '
           when 'expert' then 'At 7:45, Maya asked, "Ready for round #2?" Precision matters: 98% accuracy beats a careless sprint. Pack 6 boxes, check the labels (A-Z), and send them before Friday! A steady rhythm turns a difficult challenge into a satisfying victory. '
@@ -156,15 +176,17 @@ begin
     if r.host_id<>uid then raise exception 'Only the host can open a rematch.'; end if;
     if r.phase='results' then
       delete from typequest_private.players where code=room_code and user_id<>uid and (left_room or last_seen < stamp-interval '30 seconds');
-      update typequest_private.rooms set phase='lobby',starts_at=null,passage='',round=round+1 where code=room_code returning * into r;
-      update typequest_private.players set ready=false,typed='',correct=0,attempts=0,errors=0,sequence=0 where code=room_code;
+      update typequest_private.rooms set phase='lobby',starts_at=null,passage='',round=round+1,expires_at=stamp+interval '2 hours' where code=room_code returning * into r;
+      update typequest_private.players set ready=false,typed='',correct=0,attempts=0,errors=0,sequence=0,writer_id=null,writer_seen_at=null,finalized=false where code=room_code;
     elsif r.phase <> 'lobby' then raise exception 'Finish this race before starting a rematch.';
     end if;
   elsif p_action='sync' and p_payload ? 'typed' and r.phase='racing' and stamp >= r.starts_at then
-    -- Reject packets from an old round and ignore already acknowledged packets.
-    if coalesce((p_payload->>'round')::integer,0) <> r.round then raise exception 'This round has ended. Refresh the room.'; end if;
+    -- Stale tabs receive the latest snapshot instead of getting stuck retrying.
     next_sequence := coalesce((p_payload->>'sequence')::integer,0);
-    if next_sequence > me.sequence then
+    if can_type and not changed_writer and not me.finalized and coalesce((p_payload->>'round')::integer,0)=r.round
+      and (stamp < r.starts_at+make_interval(secs=>r.duration)
+        or (p_payload->>'inputAt')::timestamptz between r.starts_at and r.starts_at+make_interval(secs=>r.duration))
+      and next_sequence > me.sequence then
       new_text := coalesce(p_payload->>'typed','');
       if char_length(new_text)>char_length(r.passage) then raise exception 'Text exceeds the race passage.'; end if;
       -- A batch of key events preserves errors even when corrected between polls.
@@ -173,7 +195,7 @@ begin
         or (p_payload->>'attempts')::integer<0 or (p_payload->>'errors')::integer<0
         or coalesce((p_payload->>'attempts')::integer,0)<me.attempts or coalesce((p_payload->>'errors')::integer,0)<me.errors
         or (p_payload->>'errors')::integer > (p_payload->>'attempts')::integer
-        or (p_payload->>'attempts')::integer > least(10000,ceil(extract(epoch from stamp-r.starts_at)*30)+30)
+        or (p_payload->>'attempts')::integer > least(10000,ceil(least(r.duration,extract(epoch from stamp-r.starts_at))*30)+30)
         or (p_payload->>'attempts')::integer < char_length(new_text) then
         raise exception 'Invalid typing update.';
       end if;
@@ -183,6 +205,10 @@ begin
       update typequest_private.players set typed=new_text,correct=good,
         attempts=coalesce((p_payload->>'attempts')::integer,0), errors=coalesce((p_payload->>'errors')::integer,0), sequence=next_sequence
         where code=room_code and user_id=uid;
+    end if;
+    if can_type and coalesce((p_payload->>'round')::integer,0)=r.round
+      and stamp >= r.starts_at+make_interval(secs=>r.duration) and p_payload->>'final'='true' then
+      update typequest_private.players set finalized=true where code=room_code and user_id=uid;
     end if;
   end if;
 
@@ -196,7 +222,7 @@ begin
   from typequest_private.players p where p.code=room_code and (r.phase<>'lobby' or not p.left_room);
   return jsonb_build_object('code',r.code,'hostId',r.host_id,'phase',r.phase,'duration',r.duration,
     'difficulty',r.difficulty,'round',r.round,'startsAt',r.starts_at,'serverNow',stamp,
-    'passage',r.passage,'players',coalesce(snapshot,'[]'::jsonb),
+    'passage',r.passage,'players',coalesce(snapshot,'[]'::jsonb),'canType',can_type,
     'myText',(select typed from typequest_private.players where code=room_code and user_id=uid));
 end;
 $$;

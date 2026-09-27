@@ -60,8 +60,8 @@ test('multiplayer Postgres rules protect and synchronize the complete room lifec
   await rejects(rpc(ids[0],'sync',code,{...progress,sequence:4,errors:0}),/Invalid typing/);
   await rejects(rpc(ids[0],'sync',code,{...progress,sequence:4,attempts:9999}),/Invalid typing/);
   await rejects(rpc(ids[0],'sync',code,{round:1,sequence:4,typed:'cheat'}),/Invalid typing/);
-  await rejects(rpc(ids[0],'sync',code,{...progress,round:2,sequence:4}),/round has ended/);
-  await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '31 seconds' where code=$1",[code]);
+  assert.equal((await rpc(ids[0],'sync',code,{...progress,round:2,sequence:4})).round,1,'stale round returns current snapshot');
+  await db.query("update typequest_private.rooms set starts_at=clock_timestamp()-interval '34 seconds' where code=$1",[code]);
   room=await rpc(ids[0],'sync',code,{...progress,sequence:4,typed:'the sun',attempts:8});
   assert.equal(room.phase,'results'); assert.equal(room.myText,'the s','no scores accepted after the deadline');
   assert.equal(room.players.find(p=>p.id===ids[0]).wpm,2,'WPM uses the full server duration');
